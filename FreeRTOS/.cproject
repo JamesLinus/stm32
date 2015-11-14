@@ -40,13 +40,14 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="lib"/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
-	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="FreeRTOS.null.1402261666" name="FreeRTOS"/>
@@ -56,5 +57,14 @@
 		<configuration configurationName="Default">
 			<resource resourceType="PROJECT" workspacePath="/FreeRTOS"/>
 		</configuration>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.1507034095;cdt.managedbuild.toolchain.gnu.cross.base.1507034095.123485;cdt.managedbuild.tool.gnu.cross.cpp.compiler.1445488837;cdt.managedbuild.tool.gnu.cpp.compiler.input.1906325220">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.1507034095;cdt.managedbuild.toolchain.gnu.cross.base.1507034095.123485;cdt.managedbuild.tool.gnu.cross.c.compiler.1079341391;cdt.managedbuild.tool.gnu.c.compiler.input.991222711">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>

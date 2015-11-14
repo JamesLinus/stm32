@@ -28,11 +28,9 @@ NVIC_InitTypeDef  g_NVIC_InitStructure;
 
 pthread_t 		g_thread[3];
 pthread_attr_t	g_thread_attr[3];
-extern int test();
 int main(void)
 {
-  test();
-  initHW();
+//  initHW();
   
   /// gpio
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
@@ -164,7 +162,7 @@ void *ToggleLED_IPC(void *pvParameters) {
 /**
  * Init HW
  */
-void initHW()
+void __attribute__((constructor)) initHW()
 {
   GPIO_InitTypeDef GPIO_InitStructure;
   GPIO_InitTypeDef GPIO_InitStructure2;

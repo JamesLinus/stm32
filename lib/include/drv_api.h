@@ -46,6 +46,7 @@ struct platform_driver {
 	int 	(*ioctl)	(struct platform_device *device, int request, unsigned int arguments);
 
 	struct device_driver 	driver;
+	void					*archdata;
 	struct platform_driver	*next;		//pointer to next driver
 };
 

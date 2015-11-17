@@ -149,23 +149,5 @@ void DebugMon_Handler(void)
 /**
   * @}
   */ 
-void USART1_IRQHandler(void){
-	static uint16_t rxByte = 0x00;
-	if(USART_GetITStatus(USART1, USART_FLAG_TC) == SET){
-		if(USART_GetFlagStatus(USART1, USART_FLAG_TC)){
-			USART_SendData(USART1, rxByte);
-			USART_ITConfig(USART1, USART_IT_TC, DISABLE);
-		}
-		USART_ClearITPendingBit(USART1, USART_IT_TC);
-	}
-
-	if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET){
-		if(USART_GetFlagStatus(USART1, USART_FLAG_RXNE)){
-			rxByte = USART_ReceiveData(USART1);
-			USART_ITConfig(USART1, USART_IT_TC, ENABLE);
-		}
-		USART_ClearITPendingBit(USART1, USART_IT_RXNE);
-	}
-}
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

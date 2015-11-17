@@ -8,7 +8,9 @@ int      errno = 0;
 struct platform_driver* g_list_drivers	= 0;
 extern init_fxn		___drv_init_begin;
 extern init_fxn		___drv_init_end;
-
+//extern void USART_puts(volatile char* s);
+//extern void USART_putu16(uint16_t val);
+//extern void USART_putu32(uint32_t val);
 int platform_driver_register(struct platform_driver *driver){
 	int ret = -EPERM;
 	struct platform_driver *drv = 0;
@@ -52,7 +54,6 @@ int platform_device_register(struct platform_device *pdev){
 	}
 	return ret;
 }
-
 int driver_probe(){
 	init_fxn *elem;
     elem = &___drv_init_begin;
@@ -70,26 +71,32 @@ int open_dev(const char *pathname, int flags){
 	int drv_index = 0;
 	int dev_index = 0;
 
-	if(!g_list_drivers) return ret;
-
-	while(drv && !found){
+	if(!g_list_drivers) {
+		return ret;
+	}
+	while(drv){
 		dev_index = 0;
 		pdev = drv->driver.devices;
-		while(pdev && !found){
+		while(pdev){
 			if(strcmp(pdev->dev_name, pathname) == 0){
-				ret = ((((uint16_t)(drv_index)) & 0x00FF) << 8) | (((uint16_t)dev_index) & 0x00FF);
 				found = 1;
 				break;
 			}
 			pdev = pdev->next;
 			dev_index++;
 		}
+		if(found) break;
 		drv = drv->next;
 		drv_index++;
 	}
 	if(found){
-		if((found = drv->open(pdev, flags)) < 0)
-			ret = found;
+		found = drv->open(pdev, flags);
+		if(found >= 0){
+			ret = ((((uint16_t)(drv_index)) & 0x00FF) << 8) | (((uint16_t)dev_index) & 0x00FF);
+		}else{
+			ret = -EPERM;
+		}
+	}else{
 	}
 	return ret;
 }
@@ -149,6 +156,35 @@ int 	write	(int fd, const void *buf, size_t count){
 	if(dev_index > 0 || !pdev) return ret;
 	if(drv->write)
 		ret = drv->write(pdev, buf, count);
+	return ret;
+}
+int 	read_dev	(int fd, void *buf, size_t count){
+	int ret = -EPERM;
+	struct platform_driver *drv = g_list_drivers;
+	struct platform_device *pdev = 0;
+	int drv_index = 0;
+	int dev_index = 0;
+
+	drv_index = (((uint16_t)fd) & 0xFF00) >> 8;
+	dev_index = (((uint16_t)fd) & 0x00FF);
+
+	while(drv_index > 0){
+		if(drv){
+			drv = drv->next;
+		}else break;
+		drv_index --;
+	}
+	if(drv_index > 0 || !drv) return ret;
+	pdev = drv->driver.devices;
+	while(dev_index){
+		if(pdev){
+			pdev = pdev->next;
+		}else break;
+		dev_index--;
+	}
+	if(dev_index > 0 || !pdev) return ret;
+	if(drv->read)
+		ret = drv->read(pdev, buf, count);
 	return ret;
 }
 //end of file

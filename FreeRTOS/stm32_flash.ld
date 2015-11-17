@@ -77,12 +77,12 @@ SECTIONS
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
   
-  .drv :
+  .drv_init :
   {
-        ___drv_begin = .;
-        *(.drv)
-        ___drv_end = .;
-  } >FLASH
+        ___drv_init_begin = .;
+        KEEP (*(.drv_init))
+        ___drv_init_end = .;
+  } >RAM
 
 
    .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH

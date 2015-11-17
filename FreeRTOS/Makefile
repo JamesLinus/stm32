@@ -43,7 +43,7 @@ DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX
 CFLAGS  =-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 # LINKER FLAGS
 LDSCRIPT= stm32_flash.ld
-LDFLAGS =-T $(LDSCRIPT) --specs=nosys.specs $(MCFLAGS) -Wl,-Map=app.map
+LDFLAGS =-T $(LDSCRIPT) --specs=nosys.specs $(MCFLAGS) -Wl,-Map=bin/app.map
 
 ###
 # Optimizations
@@ -93,7 +93,7 @@ endif
 
 all: release
 
-release: $(BINDIR)/$(BINHEX)
+release: $(BINDIR)/$(BINHEX) $(BINDIR)/$(BIN)
 
 release-memopt: release
 
@@ -106,7 +106,8 @@ $(BINDIR)/$(BINHEX): $(BINDIR)/$(BINELF)
 	@echo "Objcopy from ELF to IHEX complete"
 $(BINDIR)/$(BIN): $(BINDIR)/$(BINELF)
 	@ $(CP) -O binary $< $@ 
-	@echo "Objcopy from B to BIN complete"	
+	@ $(OD) -S $(BINDIR)/$(BINELF) > $(BINDIR)/$(BINELF).lst
+	@echo "Objcopy from ELF to BIN complete"	
 
 $(BINDIR)/$(BINELF): $(OBJECTS)
 	@ $(CC) $(LDFLAGS) $(OBJECTS) -o $@
@@ -122,7 +123,7 @@ $(BINDIR)/$(BINELF): $(OBJECTS)
 	@echo "ASM "$<""
 
 clean:
-	@ rm -f $(OBJECTS) $(BINDIR)/$(BINELF) $(BINDIR)/$(BINHEX)
+	@ rm -f $(OBJECTS) $(BINDIR)/*
 
 deploy:
 ifeq ($(wildcard /opt/openocd/bin/openocd),)

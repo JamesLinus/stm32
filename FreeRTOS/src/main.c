@@ -10,11 +10,10 @@
 #include "timers.h"
 #include "semphr.h"
 
+#include <drv_api.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <drv_api.h>
-
-#define BLOCK_
+#include <fcntl.h>
 
 void *ToggleLED_Timer(void*);
 void *DetectButtonPress(void*);
@@ -33,7 +32,7 @@ pthread_attr_t	g_thread_attr[3];
 extern int board_register_devices();
 int main(void)
 {
-	drv_probe();
+	driver_probe();
 	board_register_devices();
 
 	initHW();
@@ -116,23 +115,25 @@ void *ToggleLED_Timer(void *pvParameters){
 	fd = open("usart-1", O_RDWR);
 	if(fd > 0){
 		USART_puts("open uart done\r\n");
+
+		close(fd);
 	}else{
 		USART_puts("open uart false\r\n");
 	}
 
-  while (1) {
-    GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
-    
-    /*
-    Delay for a period of time. vTaskDelay() places the task into
-    the Blocked state until the period has expired.
-    The delay period is spacified in 'ticks'. We can convert
-    yhis in milisecond with the constant portTICK_RATE_MS.
-    */
-    sleep(1);
-    USART_puts("toggle led\r\n");
-  }
-  return 0;
+	while (1) {
+		GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
+
+		/*
+		Delay for a period of time. vTaskDelay() places the task into
+		the Blocked state until the period has expired.
+		The delay period is spacified in 'ticks'. We can convert
+		yhis in milisecond with the constant portTICK_RATE_MS.
+		*/
+		sleep(1);
+		USART_puts("toggle led\r\n");
+	}
+	return 0;
 }
 
 /**

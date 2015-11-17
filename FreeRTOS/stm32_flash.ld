@@ -77,14 +77,6 @@ SECTIONS
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
   
-  .drv_init :
-  {
-        ___drv_init_begin = .;
-        KEEP (*(.drv_init))
-        ___drv_init_end = .;
-  } >RAM
-
-
    .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
     .ARM : {
     __exidx_start = .;
@@ -123,6 +115,10 @@ SECTIONS
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
+    
+     ___drv_init_begin = .;
+     KEEP (*(.drv_init))
+     ___drv_init_end = .;
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */

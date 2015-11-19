@@ -161,5 +161,7 @@ standard names. */
 #define xPortPendSVHandler PendSV_Handler
 #define xPortSysTickHandler SysTick_Handler
 
+#define INCLUDE_xTimerPendFunctionCall	1
+
 #endif /* FREERTOS_CONFIG_H */
 

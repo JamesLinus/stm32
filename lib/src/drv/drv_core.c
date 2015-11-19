@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include "FreeRTOS.h"
 
-int      errno = 0;
+int    errno = 0;
 struct platform_driver* g_list_drivers	= 0;
 extern init_fxn		___drv_init_begin;
 extern init_fxn		___drv_init_end;

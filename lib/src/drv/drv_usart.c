@@ -213,7 +213,8 @@ int		usart_read		(struct platform_device *dev, void* buf, int count){
 	if(!dev || dev->id < 0 || dev->id >= USART_MODULE_COUNT) return ret;
 	ret = 0;
 	while(count > 0){
-		xQueueReceive(g_usart_driver_arch_data.rx_event[dev->id], p, portMAX_DELAY);
+		if(xQueueReceive(g_usart_driver_arch_data.rx_event[dev->id], p, 0) != pdTRUE)
+			break;
 		count --;
 		p++;
 		ret++;

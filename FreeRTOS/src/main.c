@@ -19,6 +19,7 @@ pthread_attr_t		g_thread_attr[APP_THREAD_COUNT];
 sem_t 				g_thread_startup[APP_THREAD_COUNT-1];
 int					g_fd_uart1 			= -1;
 int					g_fd_led_red 		= -1;
+int					g_fd_button			= -1;
 mqd_t				g_uart_tx_buffer 	= 0;
 
 extern int board_register_devices();
@@ -67,6 +68,10 @@ void LREP(char* s, ...){
 void *Thread_Startup(void *pvParameters){
 	int i, ret;
 	struct termios2 opt;
+	uint8_t u8data, u8data2;
+	uint8_t u8button = 0;
+	fd_set readfs;
+	struct timeval timeout;
 	// register drivers & devices
 	driver_probe();
 	board_register_devices();
@@ -104,18 +109,41 @@ void *Thread_Startup(void *pvParameters){
 	}
 	// open gpio
 	g_fd_led_red = open_dev("led-red", 0);
-	if(g_fd_led_red < 0) LREP("open gpio device failed\r\n");
-	
+	if(g_fd_led_red < 0) LREP("open red led failed\r\n");
+	g_fd_button = open_dev("button", 0);
+	if(g_fd_button < 0) LREP("open button failed\r\n");
 	
 	// signal all other thread startup
 	LREP("Thread startup is running\r\n");
 	for(i = 0; i < APP_THREAD_COUNT-1; i++){
 		sem_post(&g_thread_startup[i]);
 	}
+	FD_CLR(g_fd_button, &readfs);
+	timeout.tv_sec 	= 1;
+	timeout.tv_usec = 0;
 	while (1) {
-		sleep(1);
-		LREP(".");
+		ret = select(g_fd_button, &readfs, 0, 0, &timeout);
+		if(ret > 0){
+			ret = read_dev(g_fd_button, &u8data, 1);
+			if(ret > 0){
+				if(u8data != u8button){
+					usleep_s(1000*50);
+					read_dev(g_fd_button, &u8data2, 1);
+					if(u8data2 == u8data){
+						LREP("%d", u8data);
+						u8button = u8data;
+					}
+				}
+			}else{
+				LREP("?");
+			}
+		}else if(ret == 0) LREP(".");
+		else{
+			LREP("select failed\r\n");
+			break;
+		}
 	}
+	while(1){sleep(1);}
 	return 0;
 }
 void *Thread_UartTX(void* pvParameters){
@@ -156,8 +184,10 @@ void *Thread_2(void *pvParameters){
 		}else if(len == 0){
 		}else{
 			LREP("select failed.\r\n");
+			break;
 		}
 	}
+	while(1){sleep(1);}
 }
 /**
  * Init HW

@@ -1,59 +1,52 @@
-/* Board includes */
-#include "stm32f4_discovery.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_rcc.h"
-#include "stm32f4xx_usart.h"
-
-/* Kernel includes. */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-#include "semphr.h"
-
+/*POSIX API*/
 #include <drv_api.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <termios.h>
+#include <semaphore.h>
+#include <mqueue.h>
 
 void *Thread_Startup(void*);
+void *Thread_UartTX(void*);
 void *Thread_2(void*);
-void initHW();
+void Sys_Initalize();
 void LREP(char* s, ...);
 
-GPIO_InitTypeDef  g_GPIOInitStructure;
-
-#define 			APP_THREAD_COUNT	2
+#define 			APP_THREAD_COUNT	3
 pthread_t 			g_thread[APP_THREAD_COUNT];
 pthread_attr_t		g_thread_attr[APP_THREAD_COUNT];
-SemaphoreHandle_t 	g_thread_startup[APP_THREAD_COUNT-1];
-int					g_fd_uart1 = -1;
+sem_t 				g_thread_startup[APP_THREAD_COUNT-1];
+int					g_fd_uart1 			= -1;
+int					g_fd_led_red 		= -1;
+mqd_t				g_uart_tx_buffer 	= 0;
 
 extern int board_register_devices();
-void error_trap(){
-	int i = 0;
-	while(1){
-		GPIO_ToggleBits(GPIOD,GPIO_Pin_14);
-		for(i = 0; i < 10000; i++){
-		}
-	}
+
+int g_thread_index = 1;
+#define DEFINE_THREAD(fxn, stack_size, priority) {\
+	pthread_attr_setstacksize(&g_thread_attr[g_thread_index], stack_size);\
+	pthread_setschedprio(&g_thread[g_thread_index], priority);\
+	pthread_create(&g_thread[g_thread_index], &g_thread_attr[g_thread_index], fxn, &g_thread_startup[g_thread_index-1]);\
+	g_thread_index++;\
 }
 int main(void)
 {
-	int i;
-
-	initHW();
+	int i;	
+	
+	Sys_Initalize();	
+	g_uart_tx_buffer = mq_open(0, 128);
 
 	for(i = 0; i < APP_THREAD_COUNT-1; i++)
-		g_thread_startup[i] = xSemaphoreCreateBinary();
+		sem_init(&g_thread_startup[i], 0, 0);
 
-	pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE);
-	pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 3UL);
+	pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*2);
+	pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
 	pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
-
-	pthread_attr_setstacksize(&g_thread_attr[1], configMINIMAL_STACK_SIZE);
-	pthread_setschedprio(&g_thread[1], tskIDLE_PRIORITY + 2UL);
-	pthread_create(&g_thread[1], &g_thread_attr[1], Thread_2, &g_thread_startup[0]);
-
+	
+	DEFINE_THREAD(Thread_UartTX, 	configMINIMAL_STACK_SIZE, tskIDLE_PRIORITY + 2UL);
+	DEFINE_THREAD(Thread_2, 		configMINIMAL_STACK_SIZE*2, tskIDLE_PRIORITY + 2UL);
+	
 	/* Start the RTOS Scheduler */
 	vTaskStartScheduler();
 
@@ -63,73 +56,116 @@ int main(void)
 #include <stdarg.h>
 void LREP(char* s, ...){
     char szBuffer[128];
+    int i, len;
     va_list arglist;
     va_start(arglist, s);
     memset(szBuffer, 0, 128);
     vsnprintf(szBuffer, 127, s, arglist);
-    write(g_fd_uart1, szBuffer, strlen(szBuffer));
+    len = strlen(szBuffer);
+	mq_send(g_uart_tx_buffer, szBuffer, len, 0);
 }
-/**
- * TASK 1: Toggle LED via RTOS Timer
- */
 void *Thread_Startup(void *pvParameters){
-	int i;
+	int i, ret;
+	struct termios2 opt;
 	// register drivers & devices
 	driver_probe();
 	board_register_devices();
-	// open device
-	g_fd_uart1 = open_dev("usart-1", O_RDWR);
+	// open usart
+	g_fd_uart1 = open_dev("lrep", O_RDWR);
 	if(g_fd_uart1 >= 0){
-		LREP("\r\n--------- startup ----------\r\n");
+		// configure
+		ioctl(g_fd_uart1, TCGETS2, (unsigned int)&opt);
+		opt.c_cc[VMIN]  = 1;
+		opt.c_cc[VTIME] = 100;
+        opt.c_ispeed = 115200;
+        opt.c_ospeed = 115200;
+        opt.c_cflag &= ~CBAUD;
+        opt.c_cflag |= BOTHER;
+		/* 	no parity
+			1 stop bit
+			8 bit data
+		 */
+		opt.c_cflag &= ~CSIZE;
+		opt.c_cflag |= CS8;
+		opt.c_cflag &= ~CSTOPB;
+		opt.c_cflag &= ~PARENB;
+		opt.c_iflag &= ~INPCK;
+
+		//opt.c_cflag &= ~CRTSCTS; 			// disable hardware flow control CTS/ RTS*/
+		opt.c_cflag |= (CLOCAL | CREAD);	// ignore modem controls, enable reading
+		opt.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // raw input
+		opt.c_oflag &= ~(OPOST|ONLCR|OCRNL);  // raw output
+		opt.c_iflag &= ~(IXON | IXOFF | IXANY | IGNBRK| INLCR| IGNCR| ICRNL); /* disable sofware flow */
+		ioctl(g_fd_uart1, TCSETS2, (unsigned int)&opt);		
+		LREP("\r\n____________________________");
+		LREP("\r\n|-------- startup ---------|\r\n");
 	}else{
-		error_trap();
+		while(1){};
 	}
-	// signal all other thread
+	// open gpio
+	g_fd_led_red = open_dev("led-red", 0);
+	if(g_fd_led_red < 0) LREP("open gpio device failed\r\n");
+	
+	
+	// signal all other thread startup
 	LREP("Thread startup is running\r\n");
-	for(i = 0; i < 1; i++){
-		xSemaphoreGive(g_thread_startup[i]);
+	for(i = 0; i < APP_THREAD_COUNT-1; i++){
+		sem_post(&g_thread_startup[i]);
 	}
 	while (1) {
-		GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
 		sleep(1);
 		LREP(".");
 	}
 	return 0;
 }
-
-/**
- * TASK 2: Detect Button Press
- * 			And Signal Event via Inter-Process Communication (IPC)
- */
+void *Thread_UartTX(void* pvParameters){
+	uint8_t data;	
+	struct timespec abs_timeout;
+	abs_timeout.tv_sec = 1;
+	abs_timeout.tv_nsec = 0;
+	while(1){
+		if(mq_timedreceive(g_uart_tx_buffer, &data, 1, 0, &abs_timeout) == 1)
+			write(g_fd_uart1, &data, 1);
+	}
+}
 void *Thread_2(void *pvParameters){
 	int8_t buffer[16];
 	int len, i;
-	SemaphoreHandle_t* sem_startup = (SemaphoreHandle_t*)pvParameters;
+	sem_t* sem_startup = (sem_t*)pvParameters;
+	fd_set readfs;
+	struct timeval timeout;
+	uint8_t led_state = 0;
+	
+	FD_CLR(g_fd_uart1, &readfs);
+	timeout.tv_sec 	= 0;
+	timeout.tv_usec = 1000*500;	// 500ms
 
-	xSemaphoreTake(*sem_startup, portMAX_DELAY);
+	sem_wait(sem_startup);
 	LREP("Thread 2 is running\r\n");
-	while (1) {
-	  len = read_dev(g_fd_uart1, buffer, 1);
-//	  LREP("read %d\r\n", len);
-	  for(i = 0; i < len; i++){
-		  LREP("%c", buffer[i]);
-	  }
-	  GPIO_ToggleBits(GPIOD,GPIO_Pin_14);
+	while (1) {		
+		len = select(g_fd_uart1, &readfs, 0, 0, &timeout);
+		if(len > 0){
+			if(FD_ISSET(g_fd_uart1, &readfs)){
+				len = read_dev(g_fd_uart1, buffer, 1);
+				for(i = 0; i < len;  i++){
+				  LREP("%c", buffer[i]);
+				}
+				write(g_fd_led_red, &led_state, 1);
+				led_state = !led_state;
+			}
+		}else if(len == 0){
+		}else{
+			LREP("select failed.\r\n");
+		}
 	}
 }
 /**
  * Init HW
  */
-void initHW()
+/* Board includes */
+#include "stm32f4_discovery.h"
+#include "stm32f4xx_rcc.h"
+void Sys_Initalize()
 {
-  GPIO_InitTypeDef GPIO_InitStructure;
-  
-  // Init LED
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_Init(GPIOD, &GPIO_InitStructure);
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 }

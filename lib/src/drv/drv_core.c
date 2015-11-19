@@ -2,15 +2,13 @@
 #include "drv_errno.h"
 #include <string.h>
 #include <fcntl.h>
-
+#include "FreeRTOS.h"
 
 int      errno = 0;
 struct platform_driver* g_list_drivers	= 0;
 extern init_fxn		___drv_init_begin;
 extern init_fxn		___drv_init_end;
-//extern void USART_puts(volatile char* s);
-//extern void USART_putu16(uint16_t val);
-//extern void USART_putu32(uint32_t val);
+extern void LREP(char* s, ...);
 int platform_driver_register(struct platform_driver *driver){
 	int ret = -EPERM;
 	struct platform_driver *drv = 0;
@@ -187,4 +185,94 @@ int 	read_dev	(int fd, void *buf, size_t count){
 		ret = drv->read(pdev, buf, count);
 	return ret;
 }
+int 	ioctl	(int fd, int request, unsigned int arguments){
+	int ret = -EPERM;
+	struct platform_driver *drv = g_list_drivers;
+	struct platform_device *pdev = 0;
+	int drv_index = 0;
+	int dev_index = 0;
+
+	drv_index = (((uint16_t)fd) & 0xFF00) >> 8;
+	dev_index = (((uint16_t)fd) & 0x00FF);
+	
+	while(drv_index > 0){
+		if(drv){
+			drv = drv->next;
+		}else break;
+		drv_index --;
+	}
+	if(drv_index > 0 || !drv) return ret;
+	pdev = drv->driver.devices;
+	while(dev_index){
+		if(pdev){
+			pdev = pdev->next;
+		}else break;
+		dev_index--;
+	}
+	if(dev_index > 0 || !pdev) return ret;
+	if(drv->ioctl)
+		ret = drv->ioctl(pdev, request, arguments);
+	return ret;
+}
+int 	select(int fd, fd_set *readfds, fd_set *writefds,
+		  fd_set *exceptfds, struct timeval *timeout){
+	int ret = -EPERM;
+	struct platform_driver *drv = g_list_drivers;
+	struct platform_device *pdev = 0;
+	int drv_index = 0;
+	int dev_index = 0;
+	int readfd = 0, writefd = 0, errorfd = 0;
+	int s_timeout = 0;
+
+	drv_index = (((uint16_t)fd) & 0xFF00) >> 8;
+	dev_index = (((uint16_t)fd) & 0x00FF);
+	
+	while(drv_index > 0){
+		if(drv){
+			drv = drv->next;
+		}else break;
+		drv_index --;
+	}
+	if(drv_index > 0 || !drv) return ret;
+	pdev = drv->driver.devices;
+	while(dev_index){
+		if(pdev){
+			pdev = pdev->next;
+		}else break;
+		dev_index--;
+	}
+	if(dev_index > 0 || !pdev) return ret;
+	if(drv->select){
+		if(readfds) readfd 		= 1;
+		if(writefds) writefd 	= 1;
+		if(exceptfds) errorfd 	= 1;
+		
+		s_timeout = 0;
+		if(timeout){
+			s_timeout = timeout->tv_sec * 1000 / portTICK_PERIOD_MS;
+			s_timeout += timeout->tv_usec /1000 / portTICK_PERIOD_MS;
+		}		
+		ret = drv->select(pdev, &readfd, &writefd, &errorfd, s_timeout);
+		if(ret > 0){
+			if(readfd) 	FD_SET(fd, readfds);
+			if(writefd) FD_SET(fd, writefds);
+			if(errorfd) FD_SET(fd, exceptfds);
+		}
+	}
+	return ret;
+}
+
+void 	FD_CLR	(int fd, fd_set *set){
+	*set = FD_INVALID;
+}
+int  	FD_ISSET(int fd, fd_set *set){
+	return (fd == (int)(*set));
+}
+void 	FD_SET	(int fd, fd_set *set){
+	*set = fd;
+}
+void 	FD_ZERO	(fd_set *set){
+	*set = FD_INVALID;
+}
+
 //end of file

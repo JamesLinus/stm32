@@ -13,6 +13,7 @@ extern "C" {
 #endif
 #include <stdint.h>
 #include "drv_errno.h"
+#include <fcntl.h>
 
 typedef int (*init_fxn)(void);
 struct device {
@@ -44,6 +45,11 @@ struct platform_driver {
 	int		(*read)		(struct platform_device *device, void* buf, int count);
 	int		(*write)	(struct platform_device *device, const void* buf, int count);
 	int 	(*ioctl)	(struct platform_device *device, int request, unsigned int arguments);
+	/* @retval > 0 success
+	 * @retval = 0 timeout
+	 * @retval < 0 error
+	 */
+	int		(*select)	(struct platform_device *device, int *readfs, int *writefd, int *exceptfd, int timeout);
 
 	struct device_driver 	driver;
 	void					*archdata;

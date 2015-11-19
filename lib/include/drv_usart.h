@@ -13,6 +13,7 @@
 struct usart_platform_data{
 
 	void*	__drv_usart_base;
+	int		__drv_state;
 };
 
 

@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <semaphore.h>
 #include <mqueue.h>
+#include <spidev.h>
 
 #include <sys/reboot.h>
 
@@ -23,6 +24,7 @@ int					g_fd_uart1 			= -1;
 int					g_fd_led_red 		= -1;
 int					g_fd_led_green 		= -1;
 int					g_fd_button			= -1;
+int 				g_fd_spi			= -1;
 mqd_t				g_uart_tx_buffer 	= 0;
 
 extern int board_register_devices();
@@ -44,7 +46,7 @@ int main(void)
 	for(i = 0; i < APP_THREAD_COUNT-1; i++)
 		sem_init(&g_thread_startup[i], 0, 0);
 
-	pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*2);
+	pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*5);
 	pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
 	pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
 	
@@ -71,21 +73,22 @@ void LREP(char* s, ...){
 void *Thread_Startup(void *pvParameters){
 	int i, ret;
 	struct termios2 opt;
-	uint8_t u8data, u8data2;
+	uint8_t u8data, u8data2, led_status_state;
 	uint8_t u8button = 0;
-	uint8_t led_status_state = 0;
 	fd_set readfs;
 	struct timeval timeout;
+	struct spi_ioc_transfer spi_tr;
+	int8_t rx_buf[16];
+	int8_t tx_buf[16];	
+	int spi1_cs = -1;
+	
 	// register drivers & devices
 	driver_probe();
 	board_register_devices();
 	// open gpio
 	g_fd_led_red = open_dev("led-red", 0);
-	if(g_fd_led_red < 0) LREP("open red led failed\r\n");
 	g_fd_led_green = open_dev("led-green", 0);
-	if(g_fd_led_green < 0) LREP("open green led failed\r\n");
 	g_fd_button = open_dev("button", 0);
-	if(g_fd_button < 0) LREP("open button failed\r\n");
 	// open usart
 	g_fd_uart1 = open_dev("lrep", O_RDWR);
 	if(g_fd_uart1 >= 0){
@@ -122,40 +125,39 @@ void *Thread_Startup(void *pvParameters){
 			usleep_s(1000 * 100);
 		};
 	}	
+	g_fd_spi = open_dev("spi-1", O_RDWR);
+	if(g_fd_spi < 0) LREP("open spi device failed\r\n");
+	spi1_cs = open_dev("spi-1-cs", 0);
+	if(spi1_cs < 0) LREP("open spi cs device failed\r\n");
+	u8data = 1;
+	write(spi1_cs, &u8data, 1);
 	// signal all other thread startup
 	LREP("Thread startup is running\r\n");
 	for(i = 0; i < APP_THREAD_COUNT-1; i++){
 		sem_post(&g_thread_startup[i]);
 	}
-	FD_CLR(g_fd_button, &readfs);
-	timeout.tv_sec 	= 1;
-	timeout.tv_usec = 0;
+	
+	spi_tr.speed_hz = 0;
+	spi_tr.bits_per_word = 0;
+	spi_tr.tx_buf = (unsigned int)tx_buf;
+	spi_tr.rx_buf = (unsigned int)rx_buf;
+	spi_tr.len    = 6;
+	tx_buf[0]= 0x9F;
 	while (1) {
-		ret = select(g_fd_button, &readfs, 0, 0, &timeout);
-		if(ret > 0){
-			ret = read_dev(g_fd_button, &u8data, 1);
-			if(ret > 0){
-				if(u8data != u8button){
-					usleep_s(1000*50);
-					read_dev(g_fd_button, &u8data2, 1);
-					if(u8data2 == u8data){
-						LREP("%d", u8data);
-						u8button = u8data;
-					}
-				}
-			}else{
-				LREP("?");
+		u8data = 0;
+		memset(rx_buf, 0, 6);
+		write(spi1_cs, &u8data, 1);
+		ret = ioctl(g_fd_spi, SPI_IOC_MESSAGE(1),(unsigned int) &spi_tr);
+		u8data = 1;
+		write(spi1_cs, &u8data, 1);
+		LREP("spi read %d\r\n", ret);
+		if(ret == spi_tr.len){
+			for(i=0;i<ret; i++){
+				LREP("%02X ", (unsigned char)rx_buf[i]);
 			}
-		}else if(ret == 0){
-			LREP(".");
-			// timeout
-			write(g_fd_led_green, &led_status_state, 1);
-			led_status_state = !led_status_state;
+			LREP("\r\n");
 		}
-		else{
-			LREP("select failed\r\n");
-			break;
-		}
+		sleep(1);
 	}
 	while(1){sleep(1);}
 	return 0;

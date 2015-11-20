@@ -7,10 +7,12 @@
 #include <semaphore.h>
 #include <mqueue.h>
 
+#include <sys/reboot.h>
+
 void *Thread_Startup(void*);
 void *Thread_UartTX(void*);
 void *Thread_2(void*);
-void Sys_Initalize();
+void HW_Initalize();
 void LREP(char* s, ...);
 
 #define 			APP_THREAD_COUNT	3
@@ -19,6 +21,7 @@ pthread_attr_t		g_thread_attr[APP_THREAD_COUNT];
 sem_t 				g_thread_startup[APP_THREAD_COUNT-1];
 int					g_fd_uart1 			= -1;
 int					g_fd_led_red 		= -1;
+int					g_fd_led_green 		= -1;
 int					g_fd_button			= -1;
 mqd_t				g_uart_tx_buffer 	= 0;
 
@@ -35,7 +38,7 @@ int main(void)
 {
 	int i;	
 	
-	Sys_Initalize();	
+	HW_Initalize();	
 	g_uart_tx_buffer = mq_open(0, 128);
 
 	for(i = 0; i < APP_THREAD_COUNT-1; i++)
@@ -45,7 +48,7 @@ int main(void)
 	pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
 	pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
 	
-	DEFINE_THREAD(Thread_UartTX, 	configMINIMAL_STACK_SIZE, tskIDLE_PRIORITY + 2UL);
+	DEFINE_THREAD(Thread_UartTX, 	configMINIMAL_STACK_SIZE, 	tskIDLE_PRIORITY + 2UL);
 	DEFINE_THREAD(Thread_2, 		configMINIMAL_STACK_SIZE*2, tskIDLE_PRIORITY + 2UL);
 	
 	/* Start the RTOS Scheduler */
@@ -70,11 +73,19 @@ void *Thread_Startup(void *pvParameters){
 	struct termios2 opt;
 	uint8_t u8data, u8data2;
 	uint8_t u8button = 0;
+	uint8_t led_status_state = 0;
 	fd_set readfs;
 	struct timeval timeout;
 	// register drivers & devices
 	driver_probe();
 	board_register_devices();
+	// open gpio
+	g_fd_led_red = open_dev("led-red", 0);
+	if(g_fd_led_red < 0) LREP("open red led failed\r\n");
+	g_fd_led_green = open_dev("led-green", 0);
+	if(g_fd_led_green < 0) LREP("open green led failed\r\n");
+	g_fd_button = open_dev("button", 0);
+	if(g_fd_button < 0) LREP("open button failed\r\n");
 	// open usart
 	g_fd_uart1 = open_dev("lrep", O_RDWR);
 	if(g_fd_uart1 >= 0){
@@ -105,14 +116,12 @@ void *Thread_Startup(void *pvParameters){
 		LREP("\r\n____________________________");
 		LREP("\r\n|-------- startup ---------|\r\n");
 	}else{
-		while(1){};
-	}
-	// open gpio
-	g_fd_led_red = open_dev("led-red", 0);
-	if(g_fd_led_red < 0) LREP("open red led failed\r\n");
-	g_fd_button = open_dev("button", 0);
-	if(g_fd_button < 0) LREP("open button failed\r\n");
-	
+		while(1){
+			write(g_fd_led_red, &led_status_state, 1);
+			led_status_state = !led_status_state;
+			usleep_s(1000 * 100);
+		};
+	}	
 	// signal all other thread startup
 	LREP("Thread startup is running\r\n");
 	for(i = 0; i < APP_THREAD_COUNT-1; i++){
@@ -137,7 +146,12 @@ void *Thread_Startup(void *pvParameters){
 			}else{
 				LREP("?");
 			}
-		}else if(ret == 0) LREP(".");
+		}else if(ret == 0){
+			LREP(".");
+			// timeout
+			write(g_fd_led_green, &led_status_state, 1);
+			led_status_state = !led_status_state;
+		}
 		else{
 			LREP("select failed\r\n");
 			break;
@@ -177,6 +191,11 @@ void *Thread_2(void *pvParameters){
 				len = read_dev(g_fd_uart1, buffer, 1);
 				for(i = 0; i < len;  i++){
 				  LREP("%c", buffer[i]);
+				  if(buffer[i] == 'r'){
+					  LREP("\r\nSW RESET\r\n");
+					  sleep(1);
+					  reboot();
+				  }
 				}
 				write(g_fd_led_red, &led_state, 1);
 				led_state = !led_state;
@@ -195,7 +214,7 @@ void *Thread_2(void *pvParameters){
 /* Board includes */
 #include "stm32f4_discovery.h"
 #include "stm32f4xx_rcc.h"
-void Sys_Initalize()
+void HW_Initalize()
 {
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 }

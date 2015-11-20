@@ -52,74 +52,89 @@ int gpio_init		(void){
 	return 0;
 }
 module_init(gpio_init);
-// pin = bank_index * 32 + pin_index
-// bank_id:
-//   A-0, B-1, C-2, D-3, E-4, F-5, G-6, H-7, I-8
-inline int gpio_get_bank_index(int pin_id){
-	return pin_id / GPIO_PIN_COUNT;
-}
-inline int gpio_get_pin_index(int pin_id){
-	return pin_id % GPIO_PIN_COUNT;
-}
-struct gpio_param_ref {
-	GPIO_TypeDef* 	GPIOx;
-	uint32_t 		RCC_AHB1Periph_GPIOx;
-	uint32_t		EXTI_PortSourceGPIOx;
-};
-struct gpio_pin_ref {
-	uint8_t NVIC_IRQChannel;
-};
 struct gpio_pin_ref g_gpio_pin_ref[] = {
 	{
+		.GPIO_Pin = GPIO_Pin_0,
+		.GPIO_PinSource = GPIO_PinSource0,
 		.NVIC_IRQChannel = EXTI0_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_1,
+		.GPIO_PinSource = GPIO_PinSource1,
 		.NVIC_IRQChannel = EXTI1_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_2,
+		.GPIO_PinSource = GPIO_PinSource2,
 		.NVIC_IRQChannel = EXTI2_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_3,
+		.GPIO_PinSource = GPIO_PinSource3,
 		.NVIC_IRQChannel = EXTI3_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_4,
+		.GPIO_PinSource = GPIO_PinSource4,
 		.NVIC_IRQChannel = EXTI4_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_5,
+		.GPIO_PinSource = GPIO_PinSource5,
 		.NVIC_IRQChannel = EXTI9_5_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_6,
+		.GPIO_PinSource = GPIO_PinSource6,
 		.NVIC_IRQChannel = EXTI9_5_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_7,
+		.GPIO_PinSource = GPIO_PinSource7,
 		.NVIC_IRQChannel = EXTI9_5_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_8,
+		.GPIO_PinSource = GPIO_PinSource8,
 		.NVIC_IRQChannel = EXTI9_5_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_9,
+		.GPIO_PinSource = GPIO_PinSource9,
 		.NVIC_IRQChannel = EXTI9_5_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_10,
+		.GPIO_PinSource = GPIO_PinSource10,
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_11,
+		.GPIO_PinSource = GPIO_PinSource11,
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_12,
+		.GPIO_PinSource = GPIO_PinSource12,
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_13,
+		.GPIO_PinSource = GPIO_PinSource13,
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_14,
+		.GPIO_PinSource = GPIO_PinSource14,
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 	{
+		.GPIO_Pin = GPIO_Pin_15,
+		.GPIO_PinSource = GPIO_PinSource15,	
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
 };
-struct gpio_param_ref g_gpio_param_ref[] = {
+struct gpio_bank_ref g_gpio_bank_ref[] = {
 	{
 		.GPIOx = GPIOA,
 		.RCC_AHB1Periph_GPIOx = RCC_AHB1Periph_GPIOA,
@@ -180,18 +195,18 @@ int 	gpio_open	(struct platform_device *dev, int flags){
 		pin < 0 || pin >= GPIO_PIN_COUNT)
 		return ret;
 	
-	RCC_AHB1PeriphClockCmd(g_gpio_param_ref[bank].RCC_AHB1Periph_GPIOx, ENABLE);
+	RCC_AHB1PeriphClockCmd(g_gpio_bank_ref[bank].RCC_AHB1Periph_GPIOx, ENABLE);
 	GPIO_InitStructure.GPIO_Mode 	= data->dir;
 	GPIO_InitStructure.GPIO_Pin 	= (((uint16_t)0x01) << pin);
 	GPIO_InitStructure.GPIO_PuPd 	= data->pull;
 	GPIO_InitStructure.GPIO_Speed 	= GPIO_Speed_100MHz;
 	GPIO_InitStructure.GPIO_OType 	= GPIO_OType_PP;
-	GPIO_Init(g_gpio_param_ref[bank].GPIOx, &GPIO_InitStructure);
+	GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIO_InitStructure);
 	
 	if(data->intr.mode != GPIO_INTR_MODE_DISABLE){
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 		
-		SYSCFG_EXTILineConfig(g_gpio_param_ref[bank].EXTI_PortSourceGPIOx, pin);
+		SYSCFG_EXTILineConfig(g_gpio_bank_ref[bank].EXTI_PortSourceGPIOx, pin);
 		EXTI_InitStruct.EXTI_Line 		= (((uint32_t)1) << pin);
 		EXTI_InitStruct.EXTI_LineCmd 	= ENABLE;
 		EXTI_InitStruct.EXTI_Mode 		= data->intr.mode;
@@ -220,7 +235,7 @@ int		gpio_read	(struct platform_device *dev, void* buf, int count){
 	int pin = gpio_get_pin_index(dev->id);
 	
 	if(count > 0){
-		*p = GPIO_ReadInputDataBit(g_gpio_param_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
+		*p = GPIO_ReadInputDataBit(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
 		ret = 1;
 	}
 	return ret;
@@ -233,8 +248,8 @@ int		gpio_write	(struct platform_device *dev, const void* buf, int count){
 	int pin = gpio_get_pin_index(dev->id);
 	
 	if(count > 0){
-		if(p[0] == 0) GPIO_ResetBits(g_gpio_param_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
-		else GPIO_SetBits(g_gpio_param_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
+		if(p[0] == 0) GPIO_ResetBits(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
+		else GPIO_SetBits(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
 		ret = 0;
 	}	
 		

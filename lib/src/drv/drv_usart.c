@@ -1,5 +1,6 @@
-#include "../include/drv_api.h"
-#include "../include/drv_usart.h"
+#include <drv_api.h>
+#include <drv_usart.h>
+#include <drv_gpio.h>
 
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_rcc.h"
@@ -55,114 +56,80 @@ module_init(usart_init);
 int 	usart_open		(struct platform_device *dev, int flags){
 	int ret = -EPERM;
 	struct usart_platform_data* data = (struct usart_platform_data*)dev->dev.platform_data;
-
+	uint32_t RCC_AHB1Periph;
+	uint16_t GPIO_PinSource;
+	uint8_t GPIO_AF;
+	uint8_t NVIC_IRQChannel;
+	unsigned int bank, pin;	
+	GPIO_TypeDef* GPIOx;
+	USART_TypeDef* USARTx;
 	USART_InitTypeDef USART_InitStructure;
 	GPIO_InitTypeDef  GPIOInitStructure;
 	NVIC_InitTypeDef NVIC_InitStructure;
-	uint32_t RCC_AHB1Periph;
-	GPIO_TypeDef* GPIOx;
-	uint16_t GPIO_PinSource_Tx, GPIO_PinSource_Rx;
-	uint8_t GPIO_AF;
-	USART_TypeDef* USARTx;
-	uint8_t NVIC_IRQChannel;
 
 	if(!dev || dev->id < 0 || dev->id >= USART_MODULE_COUNT) return ret;
-	// config gpio
-	GPIOInitStructure.GPIO_Mode 	= GPIO_Mode_AF;
-	GPIOInitStructure.GPIO_Speed 	= GPIO_Speed_100MHz;
-	GPIOInitStructure.GPIO_OType 	= GPIO_OType_PP;
-	GPIOInitStructure.GPIO_PuPd 	= GPIO_PuPd_UP;
 	if(dev->id == 0){
 		// usart1
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOB;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_6 | GPIO_Pin_7;
-		GPIOx 						= GPIOB;
-		GPIO_PinSource_Tx 			= GPIO_PinSource6;
-		GPIO_PinSource_Rx 			= GPIO_PinSource7;
-		GPIO_AF 					= GPIO_AF_USART1;
-
+		GPIO_AF 		= GPIO_AF_USART1;
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
 		USARTx = USART1;
 		NVIC_IRQChannel = USART1_IRQn;
 	}else if(dev->id == 1){
 		// usart2
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOA;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_2 | GPIO_Pin_3;
-		GPIOx 						= GPIOA;
-		GPIO_PinSource_Tx 			= GPIO_PinSource2;
-		GPIO_PinSource_Rx 			= GPIO_PinSource3;
-		GPIO_AF 					= GPIO_AF_USART2;
-
+		GPIO_AF 		= GPIO_AF_USART2;
 		RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 		USARTx = USART2;
 		NVIC_IRQChannel = USART2_IRQn;
 	}
 	else if(dev->id == 2){
 		// usart3
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOD;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_8 | GPIO_Pin_9;
-		GPIOx 						= GPIOD;
-		GPIO_PinSource_Tx 			= GPIO_PinSource8;
-		GPIO_PinSource_Rx 			= GPIO_PinSource9;
-		GPIO_AF 					= GPIO_AF_USART3;
-
+		GPIO_AF 		= GPIO_AF_USART3;
 		RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
 		USARTx = USART3;
 		NVIC_IRQChannel = USART3_IRQn;
 	}
 	else if(dev->id == 3){
 		// usart4
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOC;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_10 | GPIO_Pin_11;
-		GPIOx 						= GPIOC;
-		GPIO_PinSource_Tx 			= GPIO_PinSource10;
-		GPIO_PinSource_Rx 			= GPIO_PinSource11;
-		GPIO_AF 					= GPIO_AF_UART4;
-
+		GPIO_AF 		= GPIO_AF_UART4;
 		RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART4, ENABLE);
 		USARTx = UART4;
 		NVIC_IRQChannel = UART4_IRQn;
 	}
 	else if(dev->id == 4){
 		//PC12
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOC;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_12;
-		GPIOx 						= GPIOC;
-		GPIO_PinSource_Tx 			= GPIO_PinSource12;
-		GPIO_AF 					= GPIO_AF_UART5;
-		RCC_AHB1PeriphClockCmd(RCC_AHB1Periph, ENABLE);
-		GPIO_Init(GPIOx, &GPIOInitStructure);
-		GPIO_PinAFConfig(GPIOx, GPIO_PinSource_Tx, GPIO_AF);
-		GPIO_PinAFConfig(GPIOx, GPIO_PinSource_Rx, GPIO_AF);
-		// usart5
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOD;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_2;
-		GPIOx 						= GPIOD;
-		GPIO_PinSource_Tx 			= GPIO_PinSource2;
-		GPIO_AF 					= GPIO_AF_UART5;
-
+		GPIO_AF 		= GPIO_AF_UART5;
 		RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE);
 		USARTx = UART5;
 		NVIC_IRQChannel = UART5_IRQn;
 	}
 	else if(dev->id == 5){
 		// usart6 PG14 PG9
-		RCC_AHB1Periph 				= RCC_AHB1Periph_GPIOG;
-		GPIOInitStructure.GPIO_Pin 	= GPIO_Pin_9 | GPIO_Pin_14;
-		GPIOx 						= GPIOG;
-		GPIO_PinSource_Tx 			= GPIO_PinSource9;
-		GPIO_PinSource_Rx 			= GPIO_PinSource14;
-		GPIO_AF 					= GPIO_AF_USART6;
-
+		GPIO_AF 		= GPIO_AF_USART6;
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART6, ENABLE);
 		USARTx = USART6;
 		NVIC_IRQChannel = USART6_IRQn;
 	}
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph, ENABLE);
-	GPIO_Init(GPIOx, &GPIOInitStructure);
-	GPIO_PinAFConfig(GPIOx, GPIO_PinSource_Tx, GPIO_AF);
-	GPIO_PinAFConfig(GPIOx, GPIO_PinSource_Rx, GPIO_AF);
-	// config usart
+	// config gpio
+	GPIOInitStructure.GPIO_Mode 	= GPIO_Mode_AF;
+	GPIOInitStructure.GPIO_Speed 	= GPIO_Speed_100MHz;
+	GPIOInitStructure.GPIO_OType 	= GPIO_OType_PP;
+	GPIOInitStructure.GPIO_PuPd 	= GPIO_PuPd_UP;
+	// rx
+	bank = gpio_get_bank_index(data->rx_pin);
+	pin  = gpio_get_pin_index(data->rx_pin);
+	RCC_AHB1PeriphClockCmd(g_gpio_bank_ref[bank].RCC_AHB1Periph_GPIOx, ENABLE);
+	GPIOInitStructure.GPIO_Pin 	= g_gpio_pin_ref[pin].GPIO_Pin;
+	GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIOInitStructure);
+	GPIO_PinAFConfig(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_PinSource, GPIO_AF);
+	
+	// tx
+	bank = gpio_get_bank_index(data->tx_pin);
+	pin  = gpio_get_pin_index(data->tx_pin);
+	RCC_AHB1PeriphClockCmd(g_gpio_bank_ref[bank].RCC_AHB1Periph_GPIOx, ENABLE);
+	GPIOInitStructure.GPIO_Pin 	= g_gpio_pin_ref[pin].GPIO_Pin;
+	GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIOInitStructure);
+	GPIO_PinAFConfig(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_PinSource, GPIO_AF);
+	// config usart	
 	/**uart1 configured as follow
 	* baudrate 9600 baud
 	* word length 8 bits

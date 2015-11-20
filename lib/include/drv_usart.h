@@ -11,6 +11,8 @@
 #define USART_MODULE_COUNT		(6)
 
 struct usart_platform_data{
+	unsigned char 	tx_pin;	/*bank * 16 + pin*/
+	unsigned char	rx_pin;	/*bank * 16 + pin*/
 
 	void*	__drv_usart_base;
 	int		__drv_state;

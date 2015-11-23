@@ -257,7 +257,17 @@ int		gpio_write	(struct platform_device *dev, const void* buf, int count){
 }
 int		gpio_ioctl	(struct platform_device *dev, int request, unsigned int arguments){
 	int ret = -EPERM;
-	
+    int bank = gpio_get_bank_index(dev->id);
+	int pin = gpio_get_pin_index(dev->id);
+    
+    switch(request){
+        case GPIO_IOCTL_TOGGLE:{
+            GPIO_ToggleBits(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_Pin);
+            ret = 0;
+            break;
+        }
+    }
+    
 	return ret;
 }
 int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *exceptfd, int timeout){

@@ -15,15 +15,21 @@ BINDIR=bin
 INCDIR=inc
 SRCDIR=src
 LIB_DIR=../lib
+#DRIVER_DIR=../driver
+MIWI_DIR=../miwi_core
 
 ###
 # Find source files
 ASOURCES=$(shell find -L $(SRCDIR) -name '*.s')
 CSOURCES+=$(shell find -L $(SRCDIR) -name '*.c')
 CSRC_LIB+=$(shell find -L $(LIB_DIR)/src -name '*.c')
+#CSRC_LIB+=$(shell find -L $(DRIVER_DIR)/src -name '*.c')
+CSRC_LIB+=$(shell find -L $(MIWI_DIR) -name '*.c')
 # Find header directories
 INC=$(shell find -L . -name '*.h' -exec dirname {} \; | uniq)
 INC+= $(LIB_DIR)/include
+#INC+= $(DRIVER_DIR)/include
+INC+= $(MIWI_DIR)
 INCLUDES=$(INC:%=-I%)
 # Create object list
 OBJECTS+=$(CSRC_LIB:%.c=%.o)

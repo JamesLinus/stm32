@@ -2,9 +2,6 @@
 #define FCNTL_H__
 #include <stddef.h>
 #include <stdint.h>
-#ifndef ssize_t
-#define ssize_t	int
-#endif
 #define fd_set unsigned int
 #define FD_INVALID	((fd_set)-1)
 struct timeval {
@@ -18,8 +15,8 @@ struct timeval {
 
 int 	open_dev(const char *pathname, int flags);
 int 	close	(int fd);
-ssize_t read_dev(int fd, void *buf, size_t count);
-ssize_t write	(int fd, const void *buf, size_t count);
+int		read_dev(int fd, void *buf, size_t count);
+int		write	(int fd, const void *buf, size_t count);
 int 	ioctl	(int d, int request, unsigned int arguments);
 /*On  success,  select()  and pselect() return the number of 
  * file descriptors contained in the three returned descriptor sets 

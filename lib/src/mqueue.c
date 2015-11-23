@@ -10,8 +10,8 @@ int mq_close(mqd_t mqdes){
 	return 0;
 }
 //On success, mq_receive() and mq_timedreceive() return the number of bytes in the received message; on error, -1 is returned, with errno set to indicate the error.
-ssize_t mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio, const struct timespec *abs_timeout){
-	ssize_t ret = 0;
+int mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio, const struct timespec *abs_timeout){
+	int ret = 0;
 	TickType_t timeout = abs_timeout->tv_sec * 1000 / portTICK_PERIOD_MS;
 	timeout += abs_timeout->tv_nsec / 1000000 / portTICK_PERIOD_MS;
 	while(msg_len){

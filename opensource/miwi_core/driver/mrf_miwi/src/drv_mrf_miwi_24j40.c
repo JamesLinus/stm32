@@ -46,11 +46,12 @@ API_UINT32_UNION OutgoingFrameCounter;
 #include "miwi/miwi_api.h"
 #endif	
 
-struct
+struct RxBuffer_s
 {
     uint8_t PayloadLen;
     uint8_t Payload[RX_PACKET_SIZE];
-} RxBuffer[BANK_SIZE];
+};
+struct RxBuffer_s RxBuffer[BANK_SIZE];
 
 
 
@@ -457,6 +458,7 @@ bool MiMAC_ReceivedPacket(void)
 
         //Determine the start of the MAC payload
         addrMode = RxBuffer[BankIndex].Payload[1] & 0xCC;
+        LREP("addrMode=%X\r\n", addrMode);
         switch (addrMode)
         {
             case 0xC8: //short dest, long source
@@ -490,6 +492,10 @@ bool MiMAC_ReceivedPacket(void)
                     MACRxPacket.Payload = &(RxBuffer[BankIndex].Payload[17]);
                 }
 #endif
+                LREP("rx src_pan_id %X%X src_addr %X payload_len %d\r\n",
+                		MACRxPacket.SourcePANID.v[0], MACRxPacket.SourcePANID.v[1],
+						MACRxPacket.SourceAddress,
+						MACRxPacket.PayloadLen);
 
                 break;
 
@@ -691,6 +697,10 @@ bool MiMAC_ReceivedPacket(void)
         MACRxPacket.LQIValue = RxBuffer[BankIndex].Payload[RxBuffer[BankIndex].PayloadLen - 2];
         MACRxPacket.RSSIValue = RxBuffer[BankIndex].Payload[RxBuffer[BankIndex].PayloadLen - 1];
 #endif
+        LREP("pkt type %X LQI %d RSSI %d\r\n",
+        		MACRxPacket.flags.bits.packetType,
+				MACRxPacket.LQIValue,
+				MACRxPacket.RSSIValue);
 
         return true;
     }
@@ -1046,6 +1056,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
             if (MRF24J40Status.bits.TX_FAIL)
             {
                 MRF24J40Status.bits.TX_FAIL = 0;
+                LREP("TX FAL\r\n");
                 return false;
             }
             break;
@@ -1056,10 +1067,13 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
             InitMRF24J40();
             MiMAC_SetAltAddress(myNetworkAddress.v, MAC_PANID.v);
             MRF24J40Status.bits.TX_BUSY = 0;
+            LREP("timeout\r\n");
             return false;
         }
+        usleep_s(1000);
     }
 #endif
+    LREP("send done\r\n");
     return true;
 
 }
@@ -1913,9 +1927,11 @@ void __attribute((interrupt(ipl4), vector(_EXTERNAL_1_VECTOR), nomips16))  _RxIn
 void drv_mrf_handler(void)
 #endif
 {
-
+	uint8_t RxBank = 0xFF;
+	LREP("drv_mrf_handler\r\n");
     if (rf_port_get_intr_enable() && rf_port_get_if())
     {
+    	LREP("if is set\r\n");
         uint8_t i;
 
         //clear the interrupt flag as soon as possible such that another interrupt can
@@ -1930,7 +1946,7 @@ void drv_mrf_handler(void)
 
             //read the interrupt status register to see what caused the interrupt
             flags.Val = PHYGetShortRAMAddr(READ_ISRSTS);
-
+            LREP("flag= %X\r\n", flags.Val);
             if (flags.bits.RF_TXIF)
             {
                 //if the TX interrupt was triggered
@@ -1970,7 +1986,7 @@ void drv_mrf_handler(void)
 
             if (flags.bits.RF_RXIF)
             {
-                uint8_t RxBank = 0xFF;
+                RxBank = 0xFF;
 
                 for (i = 0; i < BANK_SIZE; i++)
                 {
@@ -2000,10 +2016,13 @@ void drv_mrf_handler(void)
                         MRF24J40Status.bits.RX_BUFFERED = 1;
 
                         //copy all of the data from the FIFO into the TxBuffer, plus RSSI and LQI
+                        LREP("rx %d[%d]\r\n", RxBuffer[RxBank].PayloadLen, RxBank);
                         for (i = 1; i <= RxBuffer[RxBank].PayloadLen + 2; i++)
                         {
                             RxBuffer[RxBank].Payload[i - 1] = PHYGetLongRAMAddr(0x300 + i);
+                            LREP("%02X ", RxBuffer[RxBank].Payload[i - 1]);
                         }
+                        LREP("done %d[%d]\r\n", RxBuffer[RxBank].PayloadLen, RxBank);
                         PHYSetShortRAMAddr(WRITE_RXFLUSH, 0x01);
                     } else
                     {

@@ -280,6 +280,7 @@ void MiWiTasks(void)
     {
         if( MiWiStateMachine.bits.RxHasUserData )
         {
+        	LREP("MiWiStateMachine.bits.RxHasUserData=%d\r\n", MiWiStateMachine.bits.RxHasUserData);
             return;
         }
 
@@ -1240,6 +1241,7 @@ ThisPacketIsForMe:
 
             //if it is a command packet
             case PACKET_TYPE_COMMAND:
+            	LREP("PACKET_TYPE_COMMAND MACRxPacket.Payload[0]=%d\r\n", MACRxPacket.Payload[0]);
 HANDLE_COMMAND_PACKET:
                 //figure out which command packet it is
                 switch(MACRxPacket.Payload[0])
@@ -1500,6 +1502,7 @@ START_ASSOCIATION_RESPONSE:
                     #if !defined(TARGET_SMALL)
                         case MAC_COMMAND_DISASSOCIATION_NOTIFICATION:
                             {
+                            	LREP("MAC_COMMAND_DISASSOCIATION_NOTIFICATION\r\n");
                                 uint8_t cIndex;
 
                                 #if defined(IEEE_802_15_4)
@@ -1654,14 +1657,17 @@ START_ASSOCIATION_RESPONSE:
                     #ifdef NWK_ROLE_COORDINATOR
                         case MAC_COMMAND_BEACON_REQUEST:
                             {
+                            	LREP("MAC_COMMAND_BEACON_REQUEST %d > %d\r\n", ConnMode , ENABLE_ACTIVE_SCAN_RSP);
                                 if( ConnMode > ENABLE_ACTIVE_SCAN_RSP )
                                 {
                                     break;
                                 }
 
                                 //if we are a member of a network
+                                LREP("MiWiStateMachine.bits.memberOfNetwork=%d\r\n", MiWiStateMachine.bits.memberOfNetwork);
                                 if(MiWiStateMachine.bits.memberOfNetwork)
                                 {
+                                	LREP("MACRxPacket.Payload[1] %d != currentChannel %d\r\n", MACRxPacket.Payload[1], currentChannel);
                                     if( MACRxPacket.Payload[1] != currentChannel )
                                     {
                                         break;
@@ -1669,6 +1675,7 @@ START_ASSOCIATION_RESPONSE:
 
                                     //send out a beacon as long as we are not
                                     //currently acting as an FFD end device
+                                    LREP("role != ROLE_FFD_END_DEVICE %d %d\r\n", role, ROLE_FFD_END_DEVICE);
                                     if(role != ROLE_FFD_END_DEVICE)
                                     {
                                         #if !defined(TARGET_SMALL)
@@ -3240,6 +3247,7 @@ uint8_t SearchForShortAddress(void)
     void SendBeacon(void)
     {
         uint8_t i;
+        LREP("SendBeacon\r\n");
 
         MAC_FlushTx();
         #if !defined(IEEE_802_15_4)

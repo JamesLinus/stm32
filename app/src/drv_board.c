@@ -30,7 +30,7 @@ struct gpio_platform_data g_gpio_button_data = {
 	.pull 	= GPIO_NOPULL,
 	.intr 	= {
 		.mode 		= GPIO_INTR_MODE_INTERRUPT,
-		.trigger 	= GPIO_INTR_TRIGGER_RISING_FALLING,
+		.trigger 	= GPIO_INTR_TRIGGER_FALLING,
 	},
 };
 struct platform_device g_gpio_led_green_device = {

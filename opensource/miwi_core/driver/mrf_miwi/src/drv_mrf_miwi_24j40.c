@@ -28,6 +28,11 @@
 #include "miwi/miwi_nvm.h"
 #endif
 
+sem_t	g_mimac_access = 0;
+
+void mimac_lock(){ sem_wait(&g_mimac_access);};
+void mimac_unlock(){ sem_post(&g_mimac_access);};
+
 /************************ VARIABLES ********************************/
 MACINIT_PARAM MACInitParams;
 
@@ -100,15 +105,16 @@ void PHYSetLongRAMAddr(INPUT uint16_t address, INPUT uint8_t value)
     //PHY_CS = 1;
     //RFIE = tmpRFIE;
     
-    volatile uint8_t tmpRFIE = rf_port_get_intr_enable();
+    volatile uint8_t tmpRFIE;
     
+    tmpRFIE = rf_port_get_intr_enable();
     rf_port_enable_intr(0);
     rf_port_cs(0);
     rf_port_push_data((((uint8_t) (address >> 3))&0x7F) | 0x80);
     rf_port_push_data((((uint8_t) (address << 5))&0xE0) | 0x10);
     rf_port_push_data(value);
     rf_port_cs(1);
-    rf_port_enable_intr(tmpRFIE);    
+    rf_port_enable_intr(tmpRFIE);
 }
 
 /*********************************************************************
@@ -143,8 +149,8 @@ void PHYSetShortRAMAddr(INPUT uint8_t address, INPUT uint8_t value)
     //PHY_CS = 1;
     //RFIE = tmpRFIE;
     
-    volatile uint8_t tmpRFIE = rf_port_get_intr_enable();
-    
+    volatile uint8_t tmpRFIE;
+    tmpRFIE = rf_port_get_intr_enable();
     rf_port_enable_intr(0);
     rf_port_cs(0);
     rf_port_push_data(address);
@@ -183,15 +189,14 @@ uint8_t PHYGetShortRAMAddr(INPUT uint8_t address)
     //PHY_CS = 1;
     //RFIE = tmpRFIE;
     
-    volatile uint8_t tmpRFIE = rf_port_get_intr_enable();
-    
+    volatile uint8_t tmpRFIE;
+    tmpRFIE = rf_port_get_intr_enable();
     rf_port_enable_intr(0);
     rf_port_cs(0);
     rf_port_push_data(address);
     toReturn = rf_port_get_data();
     rf_port_cs(1);
     rf_port_enable_intr(tmpRFIE); 
-
     return toReturn;
 }
 
@@ -224,8 +229,8 @@ uint8_t PHYGetLongRAMAddr(INPUT uint16_t address)
     //PHY_CS = 1;
     //RFIE = tmpRFIE;
     
-    volatile uint8_t tmpRFIE = rf_port_get_intr_enable();
-    
+    volatile uint8_t tmpRFIE;
+    tmpRFIE = rf_port_get_intr_enable();
     rf_port_enable_intr(0);
     rf_port_cs(0);
     rf_port_push_data(((address >> 3)&0x7F) | 0x80);
@@ -233,7 +238,6 @@ uint8_t PHYGetLongRAMAddr(INPUT uint16_t address)
     toReturn = rf_port_get_data();
     rf_port_cs(1);
     rf_port_enable_intr(tmpRFIE); 
-
     return toReturn;
 }
 
@@ -256,11 +260,12 @@ void InitMRF24J40(void)
     do
     {
         i = PHYGetShortRAMAddr(READ_SOFTRST);
+        usleep_s(1000);
     } while ((i & 0x07) != (uint8_t) 0x00);
-
-    for (j = 0; j < (uint16_t) 1000; j++)
-    {
-    }
+    delay_ms(100);
+//    for (j = 0; j < (uint16_t) 1000; j++)
+//    {
+//    }
 
     /* flush the RX fifo */
     PHYSetShortRAMAddr(WRITE_RXFLUSH, 0x01);
@@ -336,6 +341,7 @@ void InitMRF24J40(void)
     do
     {
         i = PHYGetLongRAMAddr(RFSTATE);
+        usleep_s(1000);
     }
     while ((i&0xA0) != 0xA0);
 
@@ -348,9 +354,7 @@ void InitMRF24J40(void)
     // Make RF communication stable under extreme temperatures
     PHYSetLongRAMAddr(RFCTRL0, 0x03);
     PHYSetLongRAMAddr(RFCTRL1, 0x02);
-
     MiMAC_SetChannel(MACCurrentChannel, 0);
-
     // Define TURBO_MODE if more bandwidth is required
     // to enable radio to operate to TX/RX maximum
     // 625Kbps
@@ -364,7 +368,6 @@ void InitMRF24J40(void)
     PHYSetShortRAMAddr(WRITE_RFCTL, 0x00);
 
 #endif          
-
 }
 
 /************************************************************************************
@@ -410,6 +413,7 @@ bool MiMAC_ReceivedPacket(void)
 
     //set the interrupt flag just in case the interrupt was missed
     //if (RF_INT_PIN == 0)
+    mimac_lock();
     if (rf_port_get_intr_pin() == 0)
     {
         //RFIF = 1;
@@ -612,6 +616,7 @@ bool MiMAC_ReceivedPacket(void)
                 // all other addressing mode will not be supported in P2P
             default:
                 // not valid addressing mode or no addressing info
+            	mimac_unlock();
                 MiMAC_DiscardPacket();
                 return false;
         }
@@ -669,6 +674,7 @@ bool MiMAC_ReceivedPacket(void)
 #else
         if (RxBuffer[BankIndex].Payload[0] & 0x08)
         {
+        	mimac_unlock();
             MiMAC_DiscardPacket();
             return false;
         }
@@ -690,6 +696,7 @@ bool MiMAC_ReceivedPacket(void)
                 MACRxPacket.flags.bits.packetType = PACKET_TYPE_RESERVE;
                 break;
             default: // not support frame type
+            	mimac_unlock();
                 MiMAC_DiscardPacket();
                 return false;
         }
@@ -701,9 +708,10 @@ bool MiMAC_ReceivedPacket(void)
         		MACRxPacket.flags.bits.packetType,
 				MACRxPacket.LQIValue,
 				MACRxPacket.RSSIValue);
-
+        mimac_unlock();
         return true;
     }
+    mimac_unlock();
     return false;
 }
 
@@ -745,11 +753,12 @@ bool MiMAC_ReceivedPacket(void)
 void MiMAC_DiscardPacket(void)
 {
     //re-enable the ACKS
-
+	mimac_lock();
     if (BankIndex < BANK_SIZE)
     {
         RxBuffer[BankIndex].PayloadLen = 0;
     }
+    mimac_unlock();
 }
 
 /************************************************************************************
@@ -797,7 +806,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
 #endif
     MIWI_TICK t1, t2;
     uint8_t frameControl;
-
+    mimac_lock();
     if (transParam.flags.bits.broadcast)
     {
         transParam.altDestAddr = true;
@@ -1040,7 +1049,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
 
     // now trigger the transmission
     PHYSetShortRAMAddr(WRITE_TXNMTRIG, i);
-
+    mimac_unlock();
 #ifdef VERIFY_TRANSMIT
     t1 = MiWi_TickGet();
     while (1)
@@ -1051,22 +1060,27 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
             //RFIF = 1;
             rf_port_set_if();
         }
+        mimac_lock();
         if (MRF24J40Status.bits.TX_BUSY == 0)
         {
             if (MRF24J40Status.bits.TX_FAIL)
             {
                 MRF24J40Status.bits.TX_FAIL = 0;
                 LREP("TX FAL\r\n");
+                mimac_unlock();
                 return false;
             }
             break;
         }
+        mimac_unlock();
         t2 = MiWi_TickGet();
         if (MiWi_TickGetDiff(t2, t1) > FORTY_MILI_SECOND)
         {
             InitMRF24J40();
             MiMAC_SetAltAddress(myNetworkAddress.v, MAC_PANID.v);
+            mimac_lock();
             MRF24J40Status.bits.TX_BUSY = 0;
+            mimac_unlock();
             LREP("timeout\r\n");
             return false;
         }
@@ -1117,7 +1131,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
 uint8_t MiMAC_ChannelAssessment(INPUT uint8_t AssessmentMode)
 {
     uint8_t RSSIcheck;
-
+    mimac_lock();
     #if defined(ENABLE_PA_LNA)
         PHYSetLongRAMAddr(TESTMODE, 0x08); // Disable automatic switch on PA/LNA
     #if defined(MRF24J40MC)
@@ -1157,6 +1171,7 @@ uint8_t MiMAC_ChannelAssessment(INPUT uint8_t AssessmentMode)
         PHYSetLongRAMAddr(TESTMODE, 0x0F);
     #endif
 
+    mimac_unlock();
     return RSSIcheck;
 }
 #endif
@@ -1372,11 +1387,12 @@ bool MiMAC_SetChannel(INPUT uint8_t channel, INPUT uint8_t offsetFreq)
         return false;
     }
 #endif
-
+    mimac_lock();
     MACCurrentChannel = channel;
     PHYSetLongRAMAddr(RFCTRL0, ((channel - 11) << 4) | 0x03);
     PHYSetShortRAMAddr(WRITE_RFCTL, 0x04);
     PHYSetShortRAMAddr(WRITE_RFCTL, 0x00);
+    mimac_unlock();
     return true;
 }
 
@@ -1437,8 +1453,9 @@ bool MiMAC_SetPower(INPUT uint8_t outputPower)
     {
         reg += 0x10;
     }
-
+    mimac_lock();
     PHYSetLongRAMAddr(RFCTRL3, reg);
+    mimac_unlock();
     return true;
 }
 
@@ -1480,6 +1497,7 @@ bool MiMAC_SetPower(INPUT uint8_t outputPower)
  *****************************************************************************************/
 bool MiMAC_SetAltAddress(INPUT uint8_t *Address, INPUT uint8_t *PANID)
 {
+	mimac_lock();
     myNetworkAddress.v[0] = Address[0];
     myNetworkAddress.v[1] = Address[1];
     MAC_PANID.v[0] = PANID[0];
@@ -1489,6 +1507,7 @@ bool MiMAC_SetAltAddress(INPUT uint8_t *Address, INPUT uint8_t *PANID)
     PHYSetShortRAMAddr(WRITE_SADRH, myNetworkAddress.v[1]);
     PHYSetShortRAMAddr(WRITE_PANIDL, MAC_PANID.v[0]);
     PHYSetShortRAMAddr(WRITE_PANIDH, MAC_PANID.v[1]);
+    mimac_unlock();
     return true;
 }
 
@@ -1526,6 +1545,10 @@ bool MiMAC_Init(INPUT MACINIT_PARAM initValue)
 {
     uint8_t i;
 
+    if(!g_mimac_access)
+    	sem_init(&g_mimac_access, 0, 1);
+
+    mimac_lock();
     MACInitParams = initValue;
 
     IEEESeqNum = TMRL;
@@ -1557,7 +1580,7 @@ bool MiMAC_Init(INPUT MACINIT_PARAM initValue)
     OutgoingFrameCounter.Val = 1;
 #endif
 #endif 
-
+    mimac_unlock();
     return true;
 }
 
@@ -1928,9 +1951,11 @@ void drv_mrf_handler(void)
 #endif
 {
 	uint8_t RxBank = 0xFF;
+	uint8_t u8flag;
 	LREP("drv_mrf_handler\r\n");
-    if (rf_port_get_intr_enable() && rf_port_get_if())
-    {
+//    if (rf_port_get_intr_enable() && rf_port_get_if())
+	mimac_lock();
+//    {
     	LREP("if is set\r\n");
         uint8_t i;
 
@@ -1957,7 +1982,6 @@ void drv_mrf_handler(void)
                 {
                     MRF24J40Status.bits.SEC_IF = 0;
                 }
-
                 failureCounter = 0;
 
 #ifndef TARGET_SMALL
@@ -1979,7 +2003,6 @@ void drv_mrf_handler(void)
                     //transmission finished
                     //clear that I am pending an ACK, already got it
                     MRF24J40Status.bits.TX_PENDING_ACK = 0;
-
                 }
 #endif
             }
@@ -1987,7 +2010,6 @@ void drv_mrf_handler(void)
             if (flags.bits.RF_RXIF)
             {
                 RxBank = 0xFF;
-
                 for (i = 0; i < BANK_SIZE; i++)
                 {
                     if (RxBuffer[i].PayloadLen == 0)
@@ -1996,7 +2018,6 @@ void drv_mrf_handler(void)
                         break;
                     }
                 }
-
                 //if the RX interrupt was triggered
                 if (RxBank < BANK_SIZE)
                 {
@@ -2054,9 +2075,8 @@ void drv_mrf_handler(void)
                 PHYSetShortRAMAddr(WRITE_SECCR0, 0x80); // ignore the packet
             }
         } //end of scope of RF interrupt handler
-    } //end of if(RFIE && RFIF)
-
-
+//    } //end of if(RFIE && RFIF)
+    mimac_unlock();
     #if defined(__XC8)
     //check to see if the symbol timer overflowed
     if (TMR_IF)

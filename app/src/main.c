@@ -37,12 +37,6 @@ int                 g_fd_button         = -1;
 struct mrf24j40_device	g_rf_dev;
 volatile uint8_t	g_debug_cmd = 0;
 
-#define lock_define(obj)	sem_t g_sem_##obj;
-#define lock_init(obj)		sem_init(&g_sem_##obj, 0, 1);
-#define lock(obj, x)		sem_wait(&g_sem_##obj); x; sem_post(&g_sem_##obj);
-
-lock_define(rf);
-
 /*************************************************************************/
 // AdditionalNodeID variable array defines the additional 
 // information to identify a device on a PAN. This array
@@ -95,7 +89,6 @@ int main(void)
     for(i = 0; i < APP_THREAD_COUNT-1; i++)
         sem_init(&g_thread_startup[i], 0, 0);
     sem_init(&g_sem_debug, 0, 1);
-    lock_init(rf);
     pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*20);
     pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
     pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
@@ -207,21 +200,15 @@ void *Thread_Startup(void *pvParameters){
 	// Initialize the MiWi Protocol Stack. The only input parameter indicates
 	// if previous network configuration should be restored.
 	/*******************************************************************/
-    lock(rf,
-    		{
-    			MiApp_ProtocolInit(false);
-    		}
-    );
+    MiApp_ProtocolInit(false);
 	/*******************************************************************/
 	// Set Device Communication Channel
 	/*******************************************************************/
 	myChannel = 11;
-	lock(rf,{
-		if( MiApp_SetChannel(myChannel) == false )
-		{
-			LREP("ERROR: Unable toSet Channel..\r\n");
-		}
-	});
+	if( MiApp_SetChannel(myChannel) == false )
+	{
+		LREP("ERROR: Unable toSet Channel..\r\n");
+	}
 	/*******************************************************************/
 	//  Set the connection mode. The possible connection modes are:
 	//      ENABLE_ALL_CONN:    Enable all kinds of connection
@@ -230,9 +217,7 @@ void *Thread_Startup(void *pvParameters){
 	//      ENABL_ACTIVE_SCAN_RSP:  Allow response to Active scan
 	//      DISABLE_ALL_CONN:   Disable all connections. 
 	/*******************************************************************/
-	lock(rf,{
-		MiApp_ConnectionMode(ENABLE_ALL_CONN);
-	});
+	MiApp_ConnectionMode(ENABLE_ALL_CONN);
 	g_debug_cmd = 0;
 	LREP("cmd? ");
 	while(g_debug_cmd == 0){
@@ -240,10 +225,8 @@ void *Thread_Startup(void *pvParameters){
 	}
 	if(g_debug_cmd == 'c'){
 		// create network
-		lock(rf,{
-			MiApp_ProtocolInit(false);
-			MiApp_StartConnection(START_CONN_DIRECT, 0, 0);
-		});
+		MiApp_ProtocolInit(false);
+		MiApp_StartConnection(START_CONN_DIRECT, 0, 0);
 		LREP("Created Network Successfully\r\n");
 
 		LREP("PANID:%02x%02x Ch:%02d\r\n",myPANID.v[1],myPANID.v[0],myChannel);
@@ -256,33 +239,27 @@ void *Thread_Startup(void *pvParameters){
 		while(!ConnectionTable[0].status.bits.isValid)
 		{
 			usleep_s(1000);
-			lock(rf,{
-				if(MiApp_MessageAvailable())
-					MiApp_DiscardMessage();
-			});
+			if(MiApp_MessageAvailable())
+				MiApp_DiscardMessage();
 		}
 		LREP("Node join network\r\n");
 	}else if(g_debug_cmd == 'j'){
 		volatile uint8_t scanresult;
 		LREP("  Scanning for    Networks....\r\n");
 		LREP("Please Select   Network to Join \r\n");
-		lock(rf,{
-			MiApp_ProtocolInit(false);
-		});
+		MiApp_ProtocolInit(false);
 
 		/*******************************************************************/
 		// Perform an active scan
 		/*******************************************************************/
-		lock(rf,{
-			if(myChannel < 8)
-			scanresult = MiApp_SearchConnection(10, (0x00000001 << myChannel));
-			else if(myChannel < 16)
-			scanresult = MiApp_SearchConnection(10, (0x00000100 << (myChannel-8)));
-			else if(myChannel < 24)
-			scanresult = MiApp_SearchConnection(10, (0x00010000 << (myChannel-16)));
-			else
-			scanresult = MiApp_SearchConnection(10, (0x01000000 << (myChannel-24)));
-		});
+		if(myChannel < 8)
+		scanresult = MiApp_SearchConnection(10, (0x00000001 << myChannel));
+		else if(myChannel < 16)
+		scanresult = MiApp_SearchConnection(10, (0x00000100 << (myChannel-8)));
+		else if(myChannel < 24)
+		scanresult = MiApp_SearchConnection(10, (0x00010000 << (myChannel-16)));
+		else
+		scanresult = MiApp_SearchConnection(10, (0x01000000 << (myChannel-24)));
 		for(i = 0; i < scanresult; i++){
 			LREP("<PANID:%02x%02x>\r\n",ActiveScanResults[i].PANID.v[1], ActiveScanResults[i].PANID.v[0]);
 		}
@@ -290,9 +267,7 @@ void *Thread_Startup(void *pvParameters){
 	}
 	//
     while (1) {
-    	lock(rf, {
-    		bval = MiApp_MessageAvailable();
-    	});
+    	bval = MiApp_MessageAvailable();
         if(bval)
 		{
 			pktCMD = rxMessage.Payload[0];
@@ -332,11 +307,9 @@ void *Thread_RFIntr(void *pvParameters){
         if(len > 0){
             if(FD_ISSET(g_rf_dev.fd_intr, &readfs)){
                 LREP("i");
-                lock(rf, {
-                	rf_port_set_if();
-                	drv_mrf_handler();
-                	rf_port_clear_if();
-                });
+                rf_port_set_if();
+                drv_mrf_handler();
+                rf_port_clear_if();
             }
         }else if(len == 0){
         }else{

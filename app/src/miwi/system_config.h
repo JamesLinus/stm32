@@ -27,6 +27,7 @@
 #include "miwi_config_mesh.h"   //Include protocol layer configuration file
 #include "config_24j40.h"       //Transceiver configuration file
 #include "rf_port.h" 
+#include <debug.h>
 #include <semaphore.h>
 // There are three ways to use NVM to store data: External EPROM, Data EEPROM and
 // programming space, with following definitions:
@@ -63,7 +64,7 @@
 // LCD Pin Definitions
 
 #define TMRL    (rf_port_get_sys_count() & 0xFF)
-#define ROM     const
+#define ROM
 #define delay_ms(x)    usleep_s(1000*x)
 
 #define CONSOLE_PutString   LREP

@@ -237,6 +237,7 @@
      *
      *****************************************************************************************/       
     bool MiMAC_SetChannel(uint8_t channel, uint8_t offsetFreq);
+    bool MiMAC_SetChannel_nolock(uint8_t channel, uint8_t offsetFreq);
     
     
     /************************************************************************************

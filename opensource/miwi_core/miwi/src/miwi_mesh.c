@@ -275,9 +275,10 @@ void MiWiTasks(void)
 {
     uint8_t i;
     MIWI_TICK t1, t2;
-
+//    LREP("MiWiTasks\r\n");
     if( MiMAC_ReceivedPacket() )
     {
+//    	LREP("MiMAC_ReceivedPacket=true\r\n");
         if( MiWiStateMachine.bits.RxHasUserData )
         {
         	LREP("MiWiStateMachine.bits.RxHasUserData=%d\r\n", MiWiStateMachine.bits.RxHasUserData);
@@ -1241,7 +1242,7 @@ ThisPacketIsForMe:
 
             //if it is a command packet
             case PACKET_TYPE_COMMAND:
-            	LREP("PACKET_TYPE_COMMAND MACRxPacket.Payload[0]=%d\r\n", MACRxPacket.Payload[0]);
+//            	LREP("PACKET_TYPE_COMMAND MACRxPacket.Payload[0]=%d\r\n", MACRxPacket.Payload[0]);
 HANDLE_COMMAND_PACKET:
                 //figure out which command packet it is
                 switch(MACRxPacket.Payload[0])
@@ -1657,17 +1658,14 @@ START_ASSOCIATION_RESPONSE:
                     #ifdef NWK_ROLE_COORDINATOR
                         case MAC_COMMAND_BEACON_REQUEST:
                             {
-                            	LREP("MAC_COMMAND_BEACON_REQUEST %d > %d\r\n", ConnMode , ENABLE_ACTIVE_SCAN_RSP);
                                 if( ConnMode > ENABLE_ACTIVE_SCAN_RSP )
                                 {
                                     break;
                                 }
 
                                 //if we are a member of a network
-                                LREP("MiWiStateMachine.bits.memberOfNetwork=%d\r\n", MiWiStateMachine.bits.memberOfNetwork);
                                 if(MiWiStateMachine.bits.memberOfNetwork)
                                 {
-                                	LREP("MACRxPacket.Payload[1] %d != currentChannel %d\r\n", MACRxPacket.Payload[1], currentChannel);
                                     if( MACRxPacket.Payload[1] != currentChannel )
                                     {
                                         break;
@@ -1675,7 +1673,6 @@ START_ASSOCIATION_RESPONSE:
 
                                     //send out a beacon as long as we are not
                                     //currently acting as an FFD end device
-                                    LREP("role != ROLE_FFD_END_DEVICE %d %d\r\n", role, ROLE_FFD_END_DEVICE);
                                     if(role != ROLE_FFD_END_DEVICE)
                                     {
                                         #if !defined(TARGET_SMALL)
@@ -1744,7 +1741,7 @@ START_ASSOCIATION_RESPONSE:
             MiMAC_DiscardPacket();
         }
     }
-
+//    LREP("MiMAC_ReceivedPacket=exit\r\n");
     t1 = MiWi_TickGet();
 
     //if there really isn't anything going on
@@ -3247,7 +3244,7 @@ uint8_t SearchForShortAddress(void)
     void SendBeacon(void)
     {
         uint8_t i;
-        LREP("SendBeacon\r\n");
+//        LREP("SendBeacon\r\n");
 
         MAC_FlushTx();
         #if !defined(IEEE_802_15_4)
@@ -3257,7 +3254,7 @@ uint8_t SearchForShortAddress(void)
             MiApp_WriteData(myShortAddress.v[1]);
         #endif
         MiApp_WriteData(0xFF);    //superframe specification (BO = 0xF, SO = 0xF)
-            MiApp_WriteData(MiWiCapacityInfo.Val);
+        MiApp_WriteData(MiWiCapacityInfo.Val);
         MiApp_WriteData(0x00);    // GTS
         MiApp_WriteData(0x00);    // Pending addresses
         MiApp_WriteData(MIWI_PROTOCOL_ID);    // Protocol ID
@@ -3981,13 +3978,15 @@ while(i < 32 )
         #endif
 
         t1 = MiWi_TickGet();
+        LREP("(ScanTime[ScanDuration])=%u second\r\n", (ScanTime[ScanDuration])/1000);
         while(1)
         {
             if( MiApp_MessageAvailable() )
             {
                 MiApp_DiscardMessage();
-            }else
+            }else{
                 usleep_s(1000);
+            }
             //MiWiTasks();
             t2 = MiWi_TickGet();
             if( MiWi_TickGetDiff(t2, t1) > ((uint32_t)(ScanTime[ScanDuration])) )
@@ -4080,7 +4079,7 @@ if( Mode == CONN_MODE_INDIRECT )
         if( MiApp_MessageAvailable())
         {
             MiApp_DiscardMessage();
-        }
+        }else usleep_s(1000);
         //MiWiTasks();
         #if defined(ENABLE_SLEEP) && defined(NWK_ROLE_END_DEVICE)
             t2 = MiWi_TickGet();
@@ -4107,6 +4106,7 @@ else if( Mode == CONN_MODE_DIRECT)
             {
                 return 0xFF;
             }
+            usleep_s(1000);
         }
         ActiveScanIndex = 0;
     }
@@ -4124,7 +4124,6 @@ else if( Mode == CONN_MODE_DIRECT)
         }
         myParent = SearchForLongAddress();
     #endif
-
     if( myParent == 0xFF )
     {
         if( (myParent = findNextNetworkEntry()) == 0xFF )
@@ -4187,11 +4186,14 @@ else if( Mode == CONN_MODE_DIRECT)
         if( MiApp_MessageAvailable())
         {
             MiApp_DiscardMessage();
+        }else{
+        	usleep_s(1000);
         }
         //MiWiTasks();
         t2 = MiWi_TickGet();
         if( MiWi_TickGetDiff(t2, t1) > ONE_SECOND )
         {
+        	LREP_WARN("timeout\r\n");
             return 0xFF;
         }
     }

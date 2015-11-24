@@ -37,6 +37,8 @@ int                 g_fd_button         = -1;
 struct mrf24j40_device	g_rf_dev;
 volatile uint8_t	g_debug_cmd = 0;
 
+extern sem_t g_mimac_access;
+
 /*************************************************************************/
 // AdditionalNodeID variable array defines the additional 
 // information to identify a device on a PAN. This array
@@ -89,6 +91,7 @@ int main(void)
     for(i = 0; i < APP_THREAD_COUNT-1; i++)
         sem_init(&g_thread_startup[i], 0, 0);
     sem_init(&g_sem_debug, 0, 1);
+//    sem_init(&g_mimac_access, 0, 1);
     pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*20);
     pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
     pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
@@ -116,6 +119,7 @@ void LREP(char* s, ...){
     mq_send(g_debug_tx_buffer, szBuffer, len, 0);
     sem_post(&g_sem_debug);
 }
+#define TEST_LEN 8
 void *Thread_Startup(void *pvParameters){
     int i, ret;
     struct termios2 opt;
@@ -123,6 +127,9 @@ void *Thread_Startup(void *pvParameters){
     int myChannel = 11;
     uint8_t pktCMD;
     bool bval;
+    API_UINT16_UNION    panid;
+    uint8_t Status;
+    uint8_t activeScanIndex=0;
     
     // register drivers & devices
     driver_probe();
@@ -204,7 +211,7 @@ void *Thread_Startup(void *pvParameters){
 	/*******************************************************************/
 	// Set Device Communication Channel
 	/*******************************************************************/
-	myChannel = 11;
+	myChannel = 25;
 	if( MiApp_SetChannel(myChannel) == false )
 	{
 		LREP("ERROR: Unable toSet Channel..\r\n");
@@ -235,14 +242,15 @@ void *Thread_Startup(void *pvParameters){
 		/*******************************************************************/
 		// Wait for a Node to Join Network then proceed to Demo's
 		/*******************************************************************/
-		LREP("Wait node join network...\r\n");
-		while(!ConnectionTable[0].status.bits.isValid)
-		{
-			usleep_s(1000);
-			if(MiApp_MessageAvailable())
-				MiApp_DiscardMessage();
-		}
-		LREP("Node join network\r\n");
+//		LREP("Wait node join network...\r\n");
+//		while(!ConnectionTable[0].status.bits.isValid)
+//		{
+//			if(MiApp_MessageAvailable())
+//				MiApp_DiscardMessage();
+//			else
+//				usleep_s(1000);
+//		}
+//		LREP("Node join network\r\n");
 	}else if(g_debug_cmd == 'j'){
 		volatile uint8_t scanresult;
 		LREP("  Scanning for    Networks....\r\n");
@@ -262,17 +270,68 @@ void *Thread_Startup(void *pvParameters){
 		scanresult = MiApp_SearchConnection(10, (0x01000000 << (myChannel-24)));
 		for(i = 0; i < scanresult; i++){
 			LREP("<PANID:%02x%02x>\r\n",ActiveScanResults[i].PANID.v[1], ActiveScanResults[i].PANID.v[0]);
+			panid = ActiveScanResults[i].PANID;
+			activeScanIndex = i;
 		}
 		if(scanresult == 0) LREP("No network found\r\n");
+
+       /*******************************************************************/
+	   // Establish Connection and Display results of connection
+	   /*******************************************************************/
+	   Status = MiApp_EstablishConnection(activeScanIndex, CONN_MODE_DIRECT);
+	   if(Status == 0xFF)
+	   {
+		   LREP("Join Failed!!!\r\n");
+	   }
+	   else
+	   {
+		   LREP("Joined  Network Successfully..\r\n");
+	   }
 	}
 	//
+	uint8_t cnt = 0;
+	int timeout = 0;
     while (1) {
-    	bval = MiApp_MessageAvailable();
-        if(bval)
+        if(MiApp_MessageAvailable())
 		{
-			pktCMD = rxMessage.Payload[0];
-			LREP("cmd=%X\r\n", pktCMD);
+			ret = 0;
+			if(rxMessage.PayloadSize == TEST_LEN){
+				for(i = 1; i < TEST_LEN; i++){
+					if(rxMessage.Payload[i-1]+1 != rxMessage.Payload[i]){
+						break;
+					}
+				}
+				if(i == TEST_LEN) ret = 1;
+			}
+			if(ret)
+				LREP("recv %X payload size %d source:pan %X:%X DONE %d-->%d\r\n", pktCMD, rxMessage.PayloadSize,
+					rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
+					rxMessage.Payload[0], rxMessage.Payload[TEST_LEN-1]);
+			else{
+				LREP("recv %X payload size %d source:pan %X:%X FAIL %d/%d\r\n", pktCMD, rxMessage.PayloadSize,
+					rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
+					i , TEST_LEN);
+				for(i = 0; i < TEST_LEN; i++){
+					LREP("%02X ", rxMessage.Payload[i]);
+				}
+				LREP("\r\n");
+			}
+			MiApp_DiscardMessage();
 		}else usleep_s(1000);
+        if(g_debug_cmd == 's'){
+			timeout++;
+			if(timeout >= 500){
+				timeout = 0;
+				LREP("send %d-->%d\r\n", cnt, cnt+TEST_LEN);
+				MiApp_FlushTx();
+				for(i = 0; i < TEST_LEN; i++){
+					MiApp_WriteData(cnt++);
+				}
+	//        	MiApp_WriteData(myPANID.v[1]);
+	//        	MiApp_WriteData(myPANID.v[0]);
+				MiApp_BroadcastPacket(false);
+			}
+        }
     }
     while(1){sleep(1);}
     return 0;
@@ -306,7 +365,7 @@ void *Thread_RFIntr(void *pvParameters){
         len = select(g_rf_dev.fd_intr, (unsigned int*)&readfs, 0, 0, &timeout);
         if(len > 0){
             if(FD_ISSET(g_rf_dev.fd_intr, &readfs)){
-                LREP("i");
+//                LREP("i");
                 rf_port_set_if();
                 drv_mrf_handler();
                 rf_port_clear_if();

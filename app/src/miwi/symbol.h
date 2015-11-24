@@ -32,8 +32,8 @@
 
 
 #define ONE_SECOND              ((uint32_t)1000)
-#define SYMBOLS_TO_TICKS(a)     ((uint32_t)1)
-#define TICKS_TO_SYMBOLS(a)     ((uint32_t)60)
+#define SYMBOLS_TO_TICKS(a)     ((uint32_t)a/60)
+#define TICKS_TO_SYMBOLS(a)     ((uint32_t)60*a)
 
 
 

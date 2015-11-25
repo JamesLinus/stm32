@@ -35,6 +35,12 @@ sem_t	g_mimac_access = 0;
 
 void mimac_lock(){ sem_wait(&g_mimac_access);};
 void mimac_unlock(){ sem_post(&g_mimac_access);};
+#define PRINT_BYTE
+#ifdef PRINT_BYTE
+#define PRINT_HEX(x)	LREP("%02X ", x);
+#else
+#define PRINT_HEX(x)
+#endif
 
 /************************ VARIABLES ********************************/
 MACINIT_PARAM MACInitParams;
@@ -814,6 +820,9 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
     uint8_t frameControl;
     mimac_lock();
 //    LREP("tx ");
+#ifdef PRINT_BYTE
+    LREP("tx ");
+#endif
     if (transParam.flags.bits.broadcast)
     {
         transParam.altDestAddr = true;
@@ -920,7 +929,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
 #endif
 
     // set header length
-//    LREP("%X ", headerLength);
+//    PRINT_HEX(headerLength);
     PHYSetLongRAMAddr(loc++, headerLength);
     // set packet length
 #ifdef ENABLE_SECURITY
@@ -930,48 +939,48 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
     } else
 #endif
     {
-//    	LREP("%X ", headerLength + MACPayloadLen);
+    	PRINT_HEX(headerLength + MACPayloadLen);
         PHYSetLongRAMAddr(loc++, headerLength + MACPayloadLen);
     }
 
-//    LREP("%X ", frameControl);
+    PRINT_HEX(frameControl);
     // set frame control LSB
     PHYSetLongRAMAddr(loc++, frameControl);
 
     // set frame control MSB
     if (transParam.flags.bits.packetType == PACKET_TYPE_RESERVE)
     {
-//    	LREP("%X ", 0x80);
+    	PRINT_HEX(0x80);
         PHYSetLongRAMAddr(loc++, 0x80);
         // sequence number
-//        LREP("%X ", IEEESeqNum+1);
+        PRINT_HEX(IEEESeqNum+1);
         PHYSetLongRAMAddr(loc++, IEEESeqNum++);
     } else
     {
         if (transParam.altDestAddr && transParam.altSrcAddr)
         {
-//        	LREP("%X ", 0x88);
+        	PRINT_HEX(0x88);
             PHYSetLongRAMAddr(loc++, 0x88);
         } else if (transParam.altDestAddr && transParam.altSrcAddr == 0)
         {
-//        	LREP("%X ", 0xc8);
+        	PRINT_HEX(0xc8);
             PHYSetLongRAMAddr(loc++, 0xC8);
         } else if (transParam.altDestAddr == 0 && transParam.altSrcAddr == 1)
         {
-//        	LREP("%X ", 0x8c);
+        	PRINT_HEX(0x8c);
             PHYSetLongRAMAddr(loc++, 0x8C);
         } else
         {
-//        	LREP("%X ", 0xcc);
+        	PRINT_HEX(0xcc);
             PHYSetLongRAMAddr(loc++, 0xCC);
         }
 
-//        LREP("%X ", IEEESeqNum+1);
+        PRINT_HEX(IEEESeqNum+1);
         // sequence number
         PHYSetLongRAMAddr(loc++, IEEESeqNum++);
 
-//        LREP("%X ", transParam.DestPANID.v[0]);
-//        LREP("%X ", transParam.DestPANID.v[1]);
+        PRINT_HEX(transParam.DestPANID.v[0]);
+        PRINT_HEX(transParam.DestPANID.v[1]);
         // destination PANID
         PHYSetLongRAMAddr(loc++, transParam.DestPANID.v[0]);
         PHYSetLongRAMAddr(loc++, transParam.DestPANID.v[1]);
@@ -979,23 +988,23 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
         // destination address
         if (transParam.flags.bits.broadcast)
         {
-//        	LREP("%X ", 0xff);
-//        	LREP("%X ", 0xff);
+        	PRINT_HEX(0xff);
+        	PRINT_HEX(0xff);
             PHYSetLongRAMAddr(loc++, 0xFF);
             PHYSetLongRAMAddr(loc++, 0xFF);
         } else
         {
             if (transParam.altDestAddr)
             {
-//            	LREP("%X ", transParam.DestAddress[0]);
-//            	LREP("%X ", transParam.DestAddress[1]);
+            	PRINT_HEX(transParam.DestAddress[0]);
+            	PRINT_HEX(transParam.DestAddress[1]);
                 PHYSetLongRAMAddr(loc++, transParam.DestAddress[0]);
                 PHYSetLongRAMAddr(loc++, transParam.DestAddress[1]);
             } else
             {
                 for (i = 0; i < 8; i++)
                 {
-//                	LREP("%X ", transParam.DestAddress[i]);
+                	PRINT_HEX(transParam.DestAddress[i]);
                     PHYSetLongRAMAddr(loc++, transParam.DestAddress[i]);
                 }
             }
@@ -1006,8 +1015,8 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
     // source PANID if necessary
     if (IntraPAN == false)
     {
-//    	LREP("%X ", MAC_PANID.v[0]);
-//        LREP("%X ", MAC_PANID.v[1]);
+    	PRINT_HEX(MAC_PANID.v[0]);
+    	PRINT_HEX(MAC_PANID.v[1]);
         PHYSetLongRAMAddr(loc++, MAC_PANID.v[0]);
         PHYSetLongRAMAddr(loc++, MAC_PANID.v[1]);
     }
@@ -1016,15 +1025,15 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
     // source address
     if (transParam.altSrcAddr)
     {
-//    	LREP("%X ", myNetworkAddress.v[0]);
-//    	LREP("%X ", myNetworkAddress.v[1]);
+    	PRINT_HEX(myNetworkAddress.v[0]);
+    	PRINT_HEX(myNetworkAddress.v[1]);
         PHYSetLongRAMAddr(loc++, myNetworkAddress.v[0]);
         PHYSetLongRAMAddr(loc++, myNetworkAddress.v[1]);
     } else
     {
         for (i = 0; i < 8; i++)
         {
-//        	LREP("%X ", MACInitParams.PAddress[i]);
+        	PRINT_HEX(MACInitParams.PAddress[i]);
             PHYSetLongRAMAddr(loc++, MACInitParams.PAddress[i]);
         }
     }
@@ -1035,6 +1044,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
         // fill the additional security aux header
         for (i = 0; i < 4; i++)
         {
+        	PRINT_HEX(OutgoingFrameCounter.v[i]);
             PHYSetLongRAMAddr(loc++, OutgoingFrameCounter.v[i]);
         }
         OutgoingFrameCounter.Val++;
@@ -1046,6 +1056,7 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
         }
 #endif
         //copy myKeySequenceNumber
+        PRINT_HEX(myKeySequenceNumber);
         PHYSetLongRAMAddr(loc++, myKeySequenceNumber);
 
     }
@@ -1055,10 +1066,12 @@ bool MiMAC_SendPacket(INPUT MAC_TRANS_PARAM transParam,
     // write the payload
     for (i = 0; i < MACPayloadLen; i++)
     {
-//    	LREP("%X ",  MACPayload[i]);
+    	PRINT_HEX(MACPayload[i]);
         PHYSetLongRAMAddr(loc++, MACPayload[i]);
     }
-
+#ifdef PRINT_BYTE
+    LREP("\r\n");
+#endif
     MRF24J40Status.bits.TX_BUSY = 1;
 
     // set the trigger value
@@ -2078,6 +2091,10 @@ void drv_mrf_handler(void)
                     //get the size of the packet
                     //2 more bytes for RSSI and LQI reading
                     RxBuffer[RxBank].PayloadLen = PHYGetLongRAMAddr(0x300) + 2;
+#ifdef PRINT_BYTE
+                    LREP("rx ");
+#endif
+                    PRINT_HEX(RxBuffer[RxBank].PayloadLen-2);
                     if (RxBuffer[RxBank].PayloadLen < RX_PACKET_SIZE)
                     {
                         //indicate that data is now stored in the buffer
@@ -2088,8 +2105,11 @@ void drv_mrf_handler(void)
                         for (i = 1; i <= RxBuffer[RxBank].PayloadLen + 2; i++)
                         {
                             RxBuffer[RxBank].Payload[i - 1] = PHYGetLongRAMAddr(0x300 + i);
-//                            LREP("%02X ", RxBuffer[RxBank].Payload[i - 1]);
+                            PRINT_HEX(RxBuffer[RxBank].Payload[i - 1]);
                         }
+#ifdef PRINT_BYTE
+                    LREP("\r\n");
+#endif
 //                        LREP("\r\n", RxBuffer[RxBank].PayloadLen, RxBank);
                         PHYSetShortRAMAddr(WRITE_RXFLUSH, 0x01);
                     } else

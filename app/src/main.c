@@ -119,7 +119,7 @@ void LREP(char* s, ...){
     mq_send(g_debug_tx_buffer, szBuffer, len, 0);
     sem_post(&g_sem_debug);
 }
-#define TEST_LEN 8
+#define TEST_LEN 32
 void *Thread_Startup(void *pvParameters){
     int i, ret;
     struct termios2 opt;
@@ -183,7 +183,7 @@ void *Thread_Startup(void *pvParameters){
     else{
         uival = SPI_MODE_0;
         if(ioctl(g_rf_dev.fd_spi, SPI_IOC_WR_MODE, (unsigned int)&uival) != 0) LREP("ioctl spi mode failed\r\n");
-        uival = 1000000;
+        uival = 2000000;
         if(ioctl(g_rf_dev.fd_spi, SPI_IOC_WR_MAX_SPEED_HZ, (unsigned int)&uival) != 0) LREP("ioctl spi speed failed\r\n");
         else{
             uival = 0;
@@ -286,6 +286,8 @@ void *Thread_Startup(void *pvParameters){
 	   else
 	   {
 		   LREP("Joined  Network Successfully..\r\n");
+			LREP("PANID:%02x%02x Ch:%02d\r\n",myPANID.v[1],myPANID.v[0],myChannel);
+			LREP("Address: %02x%02x\r\n", myShortAddress.v[1], myShortAddress.v[0]);
 	   }
 	}
 	//
@@ -295,41 +297,45 @@ void *Thread_Startup(void *pvParameters){
         if(MiApp_MessageAvailable())
 		{
 			ret = 0;
-			if(rxMessage.PayloadSize == TEST_LEN){
-				for(i = 1; i < TEST_LEN; i++){
+			if(rxMessage.PayloadSize == TEST_LEN+2){
+				for(i = 3; i < TEST_LEN+2; i++){
 					if(rxMessage.Payload[i-1]+1 != rxMessage.Payload[i]){
 						break;
 					}
 				}
-				if(i == TEST_LEN) ret = 1;
+				if(i == TEST_LEN+2) ret = 1;
 			}
-			if(ret)
-				LREP("recv %X payload size %d source:pan %X:%X DONE %d-->%d\r\n", pktCMD, rxMessage.PayloadSize,
-					rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
-					rxMessage.Payload[0], rxMessage.Payload[TEST_LEN-1]);
+			if(ret){
+				//LREP("recv payload size %d source:pan %X:%X DONE %d-->%d\r\n", rxMessage.PayloadSize,
+				//	rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
+				//	rxMessage.Payload[2], rxMessage.Payload[TEST_LEN+1]);
+				LED_TOGGLE(LED_BLUE);
+			}
 			else{
-				LREP("recv %X payload size %d source:pan %X:%X FAIL %d/%d\r\n", pktCMD, rxMessage.PayloadSize,
+				LREP("recv payload size %d source:pan %X:%X FAIL %d/%d\r\n", rxMessage.PayloadSize,
 					rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
-					i , TEST_LEN);
-				for(i = 0; i < TEST_LEN; i++){
+					i-3 , TEST_LEN);
+				for(i = 3; i < TEST_LEN+2; i++){
 					LREP("%02X ", rxMessage.Payload[i]);
 				}
 				LREP("\r\n");
+				LED_TOGGLE(LED_RED);
 			}
 			MiApp_DiscardMessage();
 		}else usleep_s(1000);
         if(g_debug_cmd == 's'){
 			timeout++;
-			if(timeout >= 500){
+			if(timeout >= 100){
 				timeout = 0;
-				LREP("send %d-->%d\r\n", cnt, cnt+TEST_LEN);
+				//LREP("send %d-->%d\r\n", cnt, cnt+TEST_LEN);
 				MiApp_FlushTx();
+				MiApp_WriteData(0x01);
+				MiApp_WriteData(0x00);
 				for(i = 0; i < TEST_LEN; i++){
 					MiApp_WriteData(cnt++);
 				}
-	//        	MiApp_WriteData(myPANID.v[1]);
-	//        	MiApp_WriteData(myPANID.v[0]);
 				MiApp_BroadcastPacket(false);
+				LED_TOGGLE(LED_ORANGE);
 			}
         }
     }

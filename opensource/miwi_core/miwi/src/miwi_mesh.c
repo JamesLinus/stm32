@@ -251,6 +251,7 @@ void MacroNop(void)
                 {
                     break;
                 }
+                usleep_s(1000);
             }
         }
     }
@@ -3985,7 +3986,8 @@ while(i < 32 )
             {
                 MiApp_DiscardMessage();
             }else{
-                usleep_s(1000);
+//                usleep_s(1000);
+            	mimac_wait_event(1);
             }
             //MiWiTasks();
             t2 = MiWi_TickGet();
@@ -4079,7 +4081,9 @@ if( Mode == CONN_MODE_INDIRECT )
         if( MiApp_MessageAvailable())
         {
             MiApp_DiscardMessage();
-        }else usleep_s(1000);
+        }else
+        	mimac_wait_event(1);
+//        	usleep_s(1000);
         //MiWiTasks();
         #if defined(ENABLE_SLEEP) && defined(NWK_ROLE_END_DEVICE)
             t2 = MiWi_TickGet();
@@ -4106,7 +4110,8 @@ else if( Mode == CONN_MODE_DIRECT)
             {
                 return 0xFF;
             }
-            usleep_s(1000);
+            mimac_wait_event(1);
+//            usleep_s(1000);
         }
         ActiveScanIndex = 0;
     }
@@ -4187,7 +4192,8 @@ else if( Mode == CONN_MODE_DIRECT)
         {
             MiApp_DiscardMessage();
         }else{
-        	usleep_s(1000);
+//        	usleep_s(1000);
+        	mimac_wait_event(1);
         }
         //MiWiTasks();
         t2 = MiWi_TickGet();
@@ -4402,6 +4408,9 @@ TxBuffer[10] = MiWiSeqNum++;			    //sequence number
             if( MiApp_MessageAvailable())
             {
                 MiApp_DiscardMessage();
+            }else{
+//            	usleep_s(1000);
+            	mimac_wait_event(1);
             }
             //MiWiTasks();
             if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
@@ -4638,7 +4647,9 @@ DIRECT_LONG_ADDRESS:
                     if( MiApp_MessageAvailable())
                     {
                         MiApp_DiscardMessage();
-                    }
+                    }else
+//                    	usleep_s(1000);
+                    	mimac_wait_event(1);
                     //MiWiTasks();
                     if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
                     {
@@ -4745,7 +4756,9 @@ AcknowledgementAddr.v[1] = DestAddress[1];
             if( MiApp_MessageAvailable())
             {
                 MiApp_DiscardMessage();
-            }
+            }else
+            	mimac_wait_event(1);
+//            	usleep_s(1000);
             if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
             {
                 return true;
@@ -4993,6 +5006,8 @@ return false;
                     {
                         // if scan time exceed scan duration, prepare to scan the next channel
                         break;
+                    }else{
+                    	usleep_s(1000);
                     }
                 }
 
@@ -5118,7 +5133,8 @@ return false;
                 if( MiApp_MessageAvailable())
                 {
                     MiApp_DiscardMessage();
-                }
+                }else
+                	usleep_s(1000);
                 //MiWiTasks();
             }
             if( MiWiStateMachine.bits.Resynning == 0 )
@@ -5195,6 +5211,7 @@ GetOutOfLoop:
                         MiMAC_SendPacket(MTP, TxBuffer, 15);
                         break;
                     }
+                    usleep_s(1000);
                 }
             }
             MiApp_SetChannel(OptimalChannel);

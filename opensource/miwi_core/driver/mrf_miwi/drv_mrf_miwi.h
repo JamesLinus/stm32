@@ -549,5 +549,7 @@
     
     void UserInterruptHandler(void);
 
+    void mimac_wait_event(int timeout);
+
 #endif
 

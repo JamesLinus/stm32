@@ -62,23 +62,10 @@ int g_thread_index = 1;
     pthread_create(&g_thread[g_thread_index], &g_thread_attr[g_thread_index], fxn, &g_thread_startup[g_thread_index-1]);\
     g_thread_index++;\
 }
-void LED_ON(int index){
-	uint8_t val = 0;
-	if(index >= 0 && index < 4){
-		write(g_fd_led[index], &val, 1);
-	}
-}
-void LED_OFF(int index){
-	uint8_t val = 1;
-	if(index >= 0 && index < 4){
-		write(g_fd_led[index], &val, 1);
-	}
-}
-void LED_TOGGLE(int index){
-	if(index >= 0 && index < 4){
-		ioctl(g_fd_led[index], GPIO_IOCTL_TOGGLE, 0);
-	}
-}
+#define LED_ON(led) {uint8_t val = 1; write(g_fd_led[LED_##led], &val, 1);}
+#define LED_OFF(led) {uint8_t val = 0; write(g_fd_led[LED_##led], &val, 1);}
+#define LED_TOGGLE(led) {ioctl(g_fd_led[LED_##led], GPIO_IOCTL_TOGGLE, 0);}
+
 /* MIWI
 /*------*/
 int main(void)
@@ -92,13 +79,13 @@ int main(void)
         sem_init(&g_thread_startup[i], 0, 0);
     sem_init(&g_sem_debug, 0, 1);
 //    sem_init(&g_mimac_access, 0, 1);
-    pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*20);
+    pthread_attr_setstacksize(&g_thread_attr[0], configMINIMAL_STACK_SIZE*32);
     pthread_setschedprio(&g_thread[0], tskIDLE_PRIORITY + 2UL);
     pthread_create(&g_thread[0], &g_thread_attr[0], Thread_Startup, 0);
     
-    DEFINE_THREAD(Thread_DebugTX,     configMINIMAL_STACK_SIZE*20, tskIDLE_PRIORITY + 1UL);
-    DEFINE_THREAD(Thread_DebugRx,     configMINIMAL_STACK_SIZE*20, tskIDLE_PRIORITY + 1UL);
-    DEFINE_THREAD(Thread_RFIntr,     configMINIMAL_STACK_SIZE*20,  tskIDLE_PRIORITY + 3UL);
+    DEFINE_THREAD(Thread_DebugTX,     configMINIMAL_STACK_SIZE*32, tskIDLE_PRIORITY + 1UL);
+    DEFINE_THREAD(Thread_DebugRx,     configMINIMAL_STACK_SIZE*32, tskIDLE_PRIORITY + 1UL);
+    DEFINE_THREAD(Thread_RFIntr,     configMINIMAL_STACK_SIZE*32,  tskIDLE_PRIORITY + 3UL);
     
     /* Start the RTOS Scheduler */
     vTaskStartScheduler();
@@ -119,7 +106,7 @@ void LREP(char* s, ...){
     mq_send(g_debug_tx_buffer, szBuffer, len, 0);
     sem_post(&g_sem_debug);
 }
-#define TEST_LEN 32
+#define TEST_LEN 4
 void *Thread_Startup(void *pvParameters){
     int i, ret;
     struct termios2 opt;
@@ -171,7 +158,7 @@ void *Thread_Startup(void *pvParameters){
         LREP("\r\n|-------- startup ---------|\r\n");
     }else{
         while(1){
-            LED_TOGGLE(LED_RED);
+            LED_TOGGLE(RED);
             usleep_s(1000 * 100);
         };
     }
@@ -214,7 +201,7 @@ void *Thread_Startup(void *pvParameters){
 	myChannel = 25;
 	if( MiApp_SetChannel(myChannel) == false )
 	{
-		LREP("ERROR: Unable toSet Channel..\r\n");
+		LREP("ERROR: Unable to set Channel..\r\n");
 	}
 	/*******************************************************************/
 	//  Set the connection mode. The possible connection modes are:
@@ -229,7 +216,9 @@ void *Thread_Startup(void *pvParameters){
 	LREP("cmd? ");
 	while(g_debug_cmd == 0){
 		sleep(1);
+		LED_TOGGLE(RED);
 	}
+	LED_OFF(RED);
 	if(g_debug_cmd == 'c'){
 		// create network
 		MiApp_ProtocolInit(false);
@@ -286,40 +275,42 @@ void *Thread_Startup(void *pvParameters){
 	   else
 	   {
 		   LREP("Joined  Network Successfully..\r\n");
-			LREP("PANID:%02x%02x Ch:%02d\r\n",myPANID.v[1],myPANID.v[0],myChannel);
-			LREP("Address: %02x%02x\r\n", myShortAddress.v[1], myShortAddress.v[0]);
+		   LREP("PANID:%02x%02x Ch:%02d\r\n",myPANID.v[1],myPANID.v[0],myChannel);
+		   LREP("Address: %02x%02x\r\n", myShortAddress.v[1], myShortAddress.v[0]);
 	   }
 	}
 	//
 	uint8_t cnt = 0;
 	int timeout = 0;
+	int offset = 0;
     while (1) {
         if(MiApp_MessageAvailable())
 		{
 			ret = 0;
-			if(rxMessage.PayloadSize == TEST_LEN+2){
-				for(i = 3; i < TEST_LEN+2; i++){
+			if(rxMessage.PayloadSize == TEST_LEN+2+offset){
+				for(i = 3+offset; i < TEST_LEN+2+offset; i++){
 					if(rxMessage.Payload[i-1]+1 != rxMessage.Payload[i]){
 						break;
 					}
 				}
-				if(i == TEST_LEN+2) ret = 1;
+				if(i == TEST_LEN+2+offset) ret = 1;
 			}
 			if(ret){
 				//LREP("recv payload size %d source:pan %X:%X DONE %d-->%d\r\n", rxMessage.PayloadSize,
 				//	rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
 				//	rxMessage.Payload[2], rxMessage.Payload[TEST_LEN+1]);
-				LED_TOGGLE(LED_BLUE);
+				LED_TOGGLE(BLUE);
 			}
-			else{
+			else
+			{
 				LREP("recv payload size %d source:pan %X:%X FAIL %d/%d\r\n", rxMessage.PayloadSize,
 					rxMessage.SourceAddress, rxMessage.SourcePANID.Val,
-					i-3 , TEST_LEN);
-				for(i = 3; i < TEST_LEN+2; i++){
-					LREP("%02X ", rxMessage.Payload[i]);
-				}
-				LREP("\r\n");
-				LED_TOGGLE(LED_RED);
+					i-3+offset , TEST_LEN);
+//				for(i = 3+offset; i < TEST_LEN+2+offset; i++){
+//					LREP("%02X ", rxMessage.Payload[i]);
+//				}
+//				LREP("\r\n");
+				LED_TOGGLE(RED);
 			}
 			MiApp_DiscardMessage();
 		}else usleep_s(1000);
@@ -331,11 +322,14 @@ void *Thread_Startup(void *pvParameters){
 				MiApp_FlushTx();
 				MiApp_WriteData(0x01);
 				MiApp_WriteData(0x00);
+				for(i = 0; i < offset; i++){
+					MiApp_WriteData(0x00);
+				}
 				for(i = 0; i < TEST_LEN; i++){
 					MiApp_WriteData(cnt++);
 				}
 				MiApp_BroadcastPacket(false);
-				LED_TOGGLE(LED_ORANGE);
+				LED_TOGGLE(ORANGE);
 			}
         }
     }
@@ -393,7 +387,7 @@ void *Thread_DebugRx(void *pvParameters){
 
     FD_CLR(g_fd_debug, &readfs);
     timeout.tv_sec  = 0;
-    timeout.tv_usec = 1000*500;    // 500ms
+    timeout.tv_usec = 1000*100;    // 500ms
 
     sem_wait(sem_startup);
     LREP("Thread DebugRx is running\r\n");
@@ -409,12 +403,21 @@ void *Thread_DebugRx(void *pvParameters){
                 }
             }
         }else if(len == 0){
-            LED_TOGGLE(LED_GREEN);
+//            LED_TOGGLE(LED_GREEN);
         }
         else{
             LREP("select uart failed %d.\r\n", len);
             break;
         }
+        len = select(g_fd_button, (unsigned int*)&readfs, 0, 0, &timeout);
+		if(len > 0){
+			if(FD_ISSET(g_fd_debug, &readfs)){
+				if(g_debug_cmd != 's')
+					g_debug_cmd = 's';
+				else
+					g_debug_cmd = 0;
+			}
+		}
     }
     while(1){sleep(1);}
 }

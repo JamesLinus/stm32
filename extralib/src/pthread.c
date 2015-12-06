@@ -5,7 +5,7 @@ int pthread_create (pthread_t * __newthread,
 			   const pthread_attr_t * __attr,
 			   void *(*__start_routine) (void *),
 			   void * __arg){
-	__newthread->attr = __attr;
+	__newthread->attr = (pthread_attr_t*)__attr;
 	__newthread->start_routine = __start_routine;
 	__newthread->arg = __arg;
 

@@ -12,12 +12,13 @@
 extern "C" {
 #endif
 #include <stdint.h>
+#include <time.h>
 #ifndef __useconds_t
 #define __useconds_t    uint32_t
 #endif
 unsigned int 	sleep (unsigned int __seconds);
 int 			usleep_s (unsigned int __useconds);/*security issue*/
-
+int 			clock_gettime(clockid_t clk_id, struct timespec *tp);
 
 #ifdef	__cplusplus
 }

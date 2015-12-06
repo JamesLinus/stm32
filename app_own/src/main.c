@@ -15,6 +15,8 @@
 
 #include "network/mac/mac_mrf24j40.h"
 
+#include "Test.h"
+
 void *Thread_Startup(void*);
 void *Thread_DebugTX(void*);
 void *Thread_DebugRx(void *);
@@ -35,7 +37,6 @@ int                 g_fd_button         = -1;
 volatile uint8_t	g_debug_cmd = 0;
 
 struct mac_mrf24j40	g_rf_mac;
-int RF_MAC_callback(void* mac, int type, void* args);
 
 /*************************************************************************/
 // AdditionalNodeID variable array defines the additional 
@@ -60,10 +61,16 @@ int g_thread_index = 1;
     pthread_create(&g_thread[g_thread_index], &g_thread_attr[g_thread_index], fxn, &g_thread_startup[g_thread_index-1]);\
     g_thread_index++;\
 }
-#define LED_ON(led) {uint8_t val = 1; write(g_fd_led[LED_##led], &val, 1);}
-#define LED_OFF(led) {uint8_t val = 0; write(g_fd_led[LED_##led], &val, 1);}
-#define LED_TOGGLE(led) {ioctl(g_fd_led[LED_##led], GPIO_IOCTL_TOGGLE, 0);}
 
+uint8_t kbhit(int timeout){
+	g_debug_cmd = 0;
+    while(g_debug_cmd == 0 && timeout > 0){
+    	usleep_s(1000* 100);
+    	timeout -= 100;
+    }
+    return g_debug_cmd;
+}
+uint8_t kb_value(){ return g_debug_cmd;}
 /* MIWI
 /*------*/
 int main(void)
@@ -105,24 +112,63 @@ void LREP(char* s, ...){
     mq_send(g_debug_tx_buffer, szBuffer, len, 0);
     sem_post(&g_sem_debug);
 }
-#define TEST_LEN (110)
+#define TEST_LEN (90)
 struct mac_mrf24j40_open_param	rf_mac_init;
 flag_event_t g_test_event;
 uint8_t g_rxBuffer[TEST_LEN];
+
+int Sys_ScanChannel(uint32_t channels, uint8_t * noise_level){
+	int timeout = 1000;
+	int ret = 0;
+	unsigned int i, j;
+	struct mac_channel_assessment ch_assessment;
+	struct timespec t_now, t_ref;
+	uint8_t u8val;
+
+	i = 0;
+	j = 20;
+	LREP("    MIN");
+	while(j > 0){
+		LREP("-");
+		j--;
+	}
+	LREP("MAX\r\n");
+	while(i < 32){
+		if( (((uint32_t)1) << i) & channels ){
+			LREP("ch: %02d ", i);
+			u8val = 0;
+			MAC_mrf24j40_ioctl(&g_rf_mac, mac_mrf24j40_ioc_set_channel, (unsigned int)&i);
+			clock_gettime(CLOCK_REALTIME, &t_ref);
+			while(1){
+				MAC_mrf24j40_ioctl(&g_rf_mac, mac_mrf24j40_ioc_channel_assessment, (unsigned int)&ch_assessment);
+				if(ch_assessment.noise_level > u8val) u8val = ch_assessment.noise_level;
+				clock_gettime(CLOCK_REALTIME, &t_now);
+				if(t_now.tv_sec < t_ref.tv_sec) break;
+				if((t_now.tv_sec*1000 + t_now.tv_nsec/1000000) - (t_ref.tv_sec*1000 + t_ref.tv_nsec/1000000) >= timeout){
+					break;
+				}else{
+					usleep_s(1000* 10);
+				}
+			}
+			*noise_level = u8val;
+			noise_level++;
+			j = u8val * 20 / 255;
+			while(j > 0){
+				LREP("-");
+				j--;
+			}
+			LREP(" %02X\r\n", u8val);
+		}
+		i++;
+	}
+
+	return ret;
+}
 void *Thread_Startup(void *pvParameters){
     int i, ret;
     struct termios2 opt;
     unsigned int uival;
-    int myChannel = 11;
-    uint8_t pktCMD;
-    uint8_t Status;
-    uint8_t activeScanIndex=0;
-	uint8_t scanresult, RSSIValue;
-	struct mac_mrf24j40_write_param rf_trans;
-	uint8_t payload[TEST_LEN];
-	struct timespec timeout;
-	unsigned int timediff, timenow, timeref;
-	unsigned int datacnt, speed;
+	uint8_t userInput;
     
     // register drivers & devices
     driver_probe();
@@ -191,83 +237,30 @@ void *Thread_Startup(void *pvParameters){
     if(rf_mac_init.fd_intr < 0) LREP("open rf-intr device failed\r\n");
 
     App_Initialize();
-    rf_trans.altDestAddr = 1;
-    rf_trans.altSrcAddr = 1;
-    rf_trans.destAddress = 0xFFFF;
-    rf_trans.destPANId = 0xFFFF;
-    rf_trans.flags.bits.ackReq = 0;
-    rf_trans.flags.bits.broadcast = 1;
-    rf_trans.flags.bits.destPrsnt = 1;
-    rf_trans.flags.bits.sourcePrsnt = 1;
-    rf_trans.flags.bits.packetType = MAC_MRF24J40_PACKET_TYPE_DATA;
-    rf_trans.flags.bits.repeat = 0;
-    rf_trans.flags.bits.secEn = 0;
-    flag_event_init(&g_test_event);
-    timeout.tv_sec = 1;
-    timeout.tv_nsec = 0;
     // signal all other thread startup
     LREP("Thread startup is running\r\n");
     for(i = 0; i < APP_THREAD_COUNT-1; i++){
         sem_post(&g_thread_startup[i]);
     }
-    datacnt = 0;
-    timediff = 0;
-    uint8_t cnt = 0;
-    while (1) {
-    	if(g_debug_cmd == 's'){
-    		for(i =0 ; i < TEST_LEN; i++){
-    			payload[i] = cnt++;
-    		}
-    		MAC_mrf24j40_write(&g_rf_mac, &rf_trans, payload, TEST_LEN);
-    		if(flag_event_timedwait(&g_test_event, &timeout) == 0){
-    			LREP("timeout, end tx\r\n");
-    			PHY_mrf24j40_initialize(&g_rf_mac.phy);
-    		    uival = 25;
-    		    MAC_mrf24j40_ioctl(&g_rf_mac, mac_mrf24j40_ioc_set_channel, (unsigned int)&uival);
-//    			g_debug_cmd = 0;
-    		}
-    		datacnt += TEST_LEN;
+    usleep_s(1000* 100);
 
-    		for(i =0 ; i < TEST_LEN; i++){
-    			payload[i]++;
-    			if(g_rxBuffer[i] != payload[i]) break;
-    		}
-    		if(i < TEST_LEN) {
-    			LED_TOGGLE(RED);
-    			LREP("failed\r\n");
-    		}
-    		else {
-    			LED_TOGGLE(BLUE);
-    		}
-
-    	}else if(g_debug_cmd == 'l'){
-    		if(flag_event_timedwait(&g_test_event, &timeout) != 0){
-    			for(i =0 ; i < TEST_LEN; i++){
-    				g_rxBuffer[i]++;
-    			}
-    			MAC_mrf24j40_write(&g_rf_mac, &rf_trans, g_rxBuffer, TEST_LEN);
-    			LED_TOGGLE(GREEN);
-			}else{
-				LED_TOGGLE(RED);				
-			}
+    LREP("1. MAC test\r\n");
+    LREP("2. Normal mode\r\n");
+    LREP("cmd? ");
+    do{
+    	userInput = kbhit(1000);
+    }while(!userInput);
+    LREP("\r\n");
+    switch(userInput){
+    	case '1':{
+    		MAC_test();
+    		break;
     	}
-    	else{
-    		if(datacnt > 0){
-				timenow = xTaskGetTickCount();
-				timediff = (timenow > timeref) ? timenow - timeref : 0;
-				if(timediff > 0){
-					speed = datacnt*1000/timediff;
-					LREP("speed %u bytes in %u ms, %u.%u KB/s\r\n",
-							datacnt, timediff,
-							speed/1024,
-							(speed % 1024) * 10 / 1024);
-				}
-				datacnt = 0;
-    		}
-    		usleep_s(100);
-    		timeref = xTaskGetTickCount();
+    	case '2':{
+    		break;
     	}
     }
+    while(1){sleep(1);}
     return 0;
 }
 void *Thread_DebugTX(void* pvParameters){
@@ -359,57 +352,18 @@ void *Thread_MiwiTask(void* pvParameters){
     sem_t* sem_startup = (sem_t*)pvParameters;
     unsigned int uival;
 
-
     sem_wait(sem_startup);
     LREP("Thread MiwiTask is running\r\n");
     MAC_mrf24j40_open(&g_rf_mac, &rf_mac_init);
-    MAC_mrf24j40_register_callback(&g_rf_mac, RF_MAC_callback, &g_rf_mac);
     uival = 25;
     MAC_mrf24j40_ioctl(&g_rf_mac, mac_mrf24j40_ioc_set_channel, (unsigned int)&uival);
     while(1){
     	if(MAC_mrf24j40_select(&g_rf_mac, 100)){
     		MAC_mrf24j40_task(&g_rf_mac);
     	}
+    	LED_TOGGLE(ORANGE);
     }
     return 0;
-}
-int RF_MAC_callback(void* mac, int type, void* args){
-	int i;
-	struct mac_callback_received_data_args *recvArgs;
-	uint8_t* puiVal;
-	if(type == mac_callback_type_tx_done){
-//		LREP("\r\n[tx:done]\r\n");
-//		if(g_debug_cmd == 's')
-//			flag_event_post(&g_test_event);
-	}
-	else if(type == mac_callback_type_tx_false){
-		LREP("\r\n[tx:false]\r\n");
-	}
-	else if(type == mac_callback_type_received_data){
-		recvArgs = (struct mac_callback_received_data_args *)args;
-#if MAC_PRINT_RX > 0
-		LREP("\r\n*** RX BEGIN ***\r\n");
-		LREP("len=%d\r\n", recvArgs->packetLen);
-		puiVal = (uint8_t*)recvArgs->packet;
-		for(i =0 ;i < recvArgs->packetLen; i++){
-			if((i % 16) == 0) LREP("\r\n");
-			LREP("%02X ", puiVal[i]);
-		}
-		LREP("\r\nRX END\r\n");
-#else
-//		if(g_debug_cmd == 'l'){
-			i = 0;
-			puiVal = (uint8_t*)(recvArgs->packet);
-			while(i < recvArgs->packetLen && i < TEST_LEN){
-				g_rxBuffer[i] = puiVal[i + 10];
-				i++;
-			}
-			flag_event_post(&g_test_event);
-//		}
-//		LREP("\r\n[rx]\r\n");
-#endif
-	}
-	return 0;
 }
 /**
  * Init HW

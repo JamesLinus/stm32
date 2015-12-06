@@ -253,20 +253,19 @@ void PHY_mrf24j40_initialize(struct phy_mrf24j40* phy){
 	// Define TURBO_MODE if more bandwidth is required
 	// to enable radio to operate to TX/RX maximum
 	// 625Kbps
-#ifdef TURBO_MODE
+	if(phy->turboEn){
+		PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG0, 0x01);
+		PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG3, 0x38);
+		PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG4, 0x5C);
 
-	PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG0, 0x01);
-	PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG3, 0x38);
-	PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_BBREG4, 0x5C);
-
-	PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_RFCTL, 0x04);
-	PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_RFCTL, 0x00);
-
-#endif
+		PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_RFCTL, 0x04);
+		PHY_mrf24j40_setShortRAMAddr(phy, PHY_MRF24J40_WRITE_RFCTL, 0x00);
+	}
 }
-
+#define __mac_mrf24j40_lock(mac) sem_wait(&mac->sem_access)
+#define __mac_mrf24j40_unlock(mac) sem_post(&mac->sem_access)
 int 	MAC_mrf24j40_open(struct mac_mrf24j40* mac, struct mac_mrf24j40_open_param *init){
-	int ret = -1;
+	int ret = -1, i;
 
 	mac->phy.fd_spi 	= init->fd_spi;
 	mac->phy.fd_cs	 	= init->fd_cs;
@@ -281,20 +280,96 @@ int 	MAC_mrf24j40_open(struct mac_mrf24j40* mac, struct mac_mrf24j40_open_param 
 	mac->phy.l_address[6] = 0;
 	mac->phy.l_address[7] = 0;
 	mac->phy.channel	  = 25;
+	mac->phy.turboEn 	  = 0;
 
 	mac->txSeq = 0;
 	mac->networkAddress = 0;
-	mac->cb = 0;
-	mac->cb_user = 0;
+	mac->flags = 0x01;
+
+	for(i = 0; i < MAC_MRF24J40_WRITE_MAX_ITEMS; i++){
+		mac->write_items[i].flags = 0x00;
+	}
+	for(i = 0; i < MAC_MRF24J40_READ_MAX_ITEMS; i++){
+		mac->read_items[i].flags = 0x00;
+	}
 
 	flag_event_init(&mac->event);
+	flag_event_init(&mac->rx_event);
+	sem_init(&mac->sem_access, 0, 1);
 
 	PHY_mrf24j40_initialize(&mac->phy);
 	ret = 0;
 
 	return ret;
 }
+int 	MAC_mrf24j40_read(struct mac_mrf24j40* mac, void* payload, int payload_maxlen, int timeout){
+	int ret = 0, i;
+	struct mac_mrf24j40_read_item* item = 0;
+	struct timespec abs_timeout;
+
+	__mac_mrf24j40_lock(mac);
+	for(i = 0; i < MAC_MRF24J40_READ_MAX_ITEMS; i++){
+		if(mac->read_items[i].flags & 0x01){
+			item = &mac->read_items[i];
+			break;
+		}
+	}
+	if(item){
+		if(item->payload_len > payload_maxlen) item->payload_len = payload_maxlen;
+		_lib_memcpy(payload, item->payload, item->payload_len);
+		ret = item->payload_len;
+		item->flags &= ~((uint8_t)0x01);
+	}
+	__mac_mrf24j40_unlock(mac);
+	if(!item && timeout > 0){
+		abs_timeout.tv_sec = timeout / 1000;
+		abs_timeout.tv_nsec= (timeout % 1000) * 1000000;
+		flag_event_timedwait(&mac->rx_event, &abs_timeout);
+		__mac_mrf24j40_lock(mac);
+		for(i = 0; i < MAC_MRF24J40_READ_MAX_ITEMS; i++){
+			if(mac->read_items[i].flags & 0x01){
+				item = &mac->read_items[i];
+				break;
+			}
+		}
+		if(item){
+			if(item->payload_len > payload_maxlen) item->payload_len = payload_maxlen;
+			_lib_memcpy(payload, item->payload, item->payload_len);
+			ret = item->payload_len;
+			item->flags &= ~((uint8_t)0x01);
+		}
+		__mac_mrf24j40_unlock(mac);
+	}
+	return ret;
+}
 int 	MAC_mrf24j40_write(struct mac_mrf24j40* mac, struct mac_mrf24j40_write_param* trans,
+		void* payload, int payloadlen){
+	int ret = 0, i;
+	struct mac_mrf24j40_write_item* item = 0;
+	__mac_mrf24j40_lock(mac);
+	// find free item
+	for(i = 0 ;i < MAC_MRF24J40_WRITE_MAX_ITEMS; i++){
+		if((mac->write_items[i].flags & 0x01) == 0){
+			item = &mac->write_items[i];
+			break;
+		}
+	}
+	if(item){
+		if(payloadlen > MAC_MRF24J40_WRITE_PAYLOAD_MAX_LENGTH) payloadlen = MAC_MRF24J40_WRITE_PAYLOAD_MAX_LENGTH;
+		_lib_memcpy(&item->param, trans, sizeof(struct mac_mrf24j40_write_param));
+		_lib_memcpy(item->payload, payload, payloadlen);
+		item->payload_len = payloadlen;
+		item->flags |= 0x01;
+	}else{
+		LREP_WARN("no more tx space\r\n");
+		ret = -1;
+	}
+	__mac_mrf24j40_unlock(mac);
+	flag_event_post(&mac->event);
+
+	return 0;
+}
+int 	__mac_mrf24j40_write(struct mac_mrf24j40* mac, struct mac_mrf24j40_write_param* trans,
 		void* payload, int payloadlen){
 	int ret = -1, i;
 	uint8_t hdr_len;
@@ -376,11 +451,15 @@ int 	MAC_mrf24j40_select(struct mac_mrf24j40* mac, int timeout){
 	return ret;
 }
 int		MAC_mrf24j40_ioctl(struct mac_mrf24j40* mac, int request, unsigned int arguments){
-	int ret = -1;
+	int ret = -1, i;
 	unsigned int* puiVal;
+	struct mac_channel_assessment *ch_assessment;
+
 	switch(request){
 		case mac_mrf24j40_ioc_trigger_interrupt:{
+			__mac_mrf24j40_lock(mac);
 			flag_event_post(&mac->event);
+			__mac_mrf24j40_unlock(mac);
 			ret = 0;
 			break;
 		}
@@ -390,28 +469,50 @@ int		MAC_mrf24j40_ioctl(struct mac_mrf24j40* mac, int request, unsigned int argu
 			ret = 0;
 			break;
 		}
+		case mac_mrf24j40_ioc_channel_assessment:{
+			ch_assessment = (struct mac_channel_assessment*)arguments;
+			ret =1000;
+			PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_BBREG6, 0x80);
+			ch_assessment->noise_level = PHY_mrf24j40_getShortRAMAddr(&mac->phy, PHY_MRF24J40_READ_BBREG6);
+			while(((ch_assessment->noise_level & 0x01) != 0x01) && (ret > 0)){
+				ch_assessment->noise_level = PHY_mrf24j40_getShortRAMAddr(&mac->phy, PHY_MRF24J40_READ_BBREG6);
+				usleep_s(1000*10);
+				ret -= 10;
+			}
+			ch_assessment->noise_level = PHY_mrf24j40_getLongRAMAddr(&mac->phy, 0x210);
+			PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_BBREG6, 0x40);
+			if(ret > 0) ret = -1;
+			else ret = 0;
+			break;
+		}
+		case mac_mrf24j40_ioc_reset:{
+			__mac_mrf24j40_lock(mac);
+			mac->flags = 0x01;
+			for(i = 0; i < MAC_MRF24J40_WRITE_MAX_ITEMS; i++){
+				mac->write_items[i].flags = 0x00;
+			}
+			for(i = 0; i < MAC_MRF24J40_READ_MAX_ITEMS; i++){
+				mac->read_items[i].flags = 0x00;
+			}
+			__mac_mrf24j40_unlock(mac);
+			break;
+		}
 	}
 	return ret;
-}
-int 	MAC_mrf24j40_register_callback(struct mac_mrf24j40* mac, MAC_callback cb, void* user){
-	mac->cb = cb;
-	mac->cb_user = user;
-	return 0;
 }
 int 	MAC_mrf24j40_task(struct mac_mrf24j40* mac){
 	int ret = -1, i;
 	uint8_t u8val, u8len;
 	PHY_MRF24J40_IFREG	flags;
 	uint8_t rxBuf[144];
-	struct mac_callback_received_data_args recvArgs;
+	struct mac_mrf24j40_write_item* item = 0;
+	struct mac_mrf24j40_read_item*	read_item = 0;
 
+	// interrupt
 	flags.Val = PHY_mrf24j40_getShortRAMAddr(&mac->phy, PHY_MRF24J40_READ_ISRSTS);
 	if(flags.bits.RF_TXIF){
+		mac->flags |= ((uint8_t)1 << MAC_MRF24J40_FLAG_TX_DONE);	// set bit tx done
 		u8val = PHY_mrf24j40_getShortRAMAddr(&mac->phy, PHY_MRF24J40_READ_TXSR);
-		if(mac->cb){
-			mac->cb(mac,
-					(u8val & 0x01) ? mac_callback_type_tx_false : mac_callback_type_tx_done, 0);
-		}
 	}
 	if(flags.bits.RF_RXIF){
 		PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_BBREG1, 0x40);	// Disable RX
@@ -423,15 +524,44 @@ int 	MAC_mrf24j40_task(struct mac_mrf24j40* mac){
 		}
 		PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_RXFLUSH, 0x01);
 		PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_BBREG1, 0x00);	// Enable RX
-		if(mac->cb){
-			recvArgs.packet = rxBuf;
-			recvArgs.packetLen = u8len;
-			mac->cb(mac, mac_callback_type_received_data, &recvArgs);
+		// find free item
+		__mac_mrf24j40_lock(mac);
+		for(i = 0; i < MAC_MRF24J40_READ_MAX_ITEMS; i++){
+			if((mac->read_items[i].flags & 0x01) == 0){
+				read_item = &mac->read_items[i];
+				break;
+			}
 		}
+		if(read_item){
+			if(u8len > MAC_MRF24J40_READ_PAYLOAD_MAX_LENGTH-1+10) u8len = MAC_MRF24J40_READ_PAYLOAD_MAX_LENGTH-1+10;
+			_lib_memcpy(read_item->payload, &rxBuf[10], u8len + 1 - 10);
+			read_item->payload_len = u8len+1-10;
+			read_item->flags |= 0x01;	// set flags
+			mac->flags |= ((uint8_t)1 << MAC_MRF24J40_FLAG_RX_DONE);
+			flag_event_post(&mac->rx_event);
+		}else{
+			LREP_WARN("no more rx space\r\n");
+		}
+		__mac_mrf24j40_unlock(mac);
 	}
 	if(flags.bits.SECIF){
 		PHY_mrf24j40_setShortRAMAddr(&mac->phy, PHY_MRF24J40_WRITE_SECCR0, 0x80);
 		LREP("\r\nSECIF\r\n");
+	}
+	// tx pennding items
+	if(mac->flags & ((uint8_t)1 << MAC_MRF24J40_FLAG_TX_DONE)){	// if tx done
+		__mac_mrf24j40_lock(mac);
+		// find full item
+		for(i = 0 ;i < MAC_MRF24J40_WRITE_MAX_ITEMS; i++){
+			if(mac->write_items[i].flags & 0x01){
+				item = &mac->write_items[i];
+				__mac_mrf24j40_write(mac, &item->param, item->payload, item->payload_len);
+				item->flags &= ~((uint8_t)0x01);	// clear full bit
+				mac->flags &= ~((uint8_t)1 << MAC_MRF24J40_FLAG_TX_DONE);	// clear tx done
+				break;
+			}
+		}
+		__mac_mrf24j40_unlock(mac);
 	}
 
 	return ret;

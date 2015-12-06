@@ -338,69 +338,42 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 	return ret;
 }
 void SPI1_IRQHandler(void){
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
+	static BaseType_t xHigherPriorityTaskWoken;
 	static SPI_TypeDef* SPIx = SPI1;
 	static uint8_t data;
 	
-	xResult = pdFAIL;	
-	if( SPI_I2S_GetITStatus(SPIx, SPI_I2S_IT_RXNE) ){
-		SPI_I2S_ClearITPendingBit(SPIx, SPI_I2S_IT_RXNE);
+	if( SPIx->SR & 0x01 ){
+		SPIx->SR = 0x00;
 		data = SPIx->DR;
 		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xQueueSendFromISR(g_spi_driver_arch_data.rx_event[0], &data, &xHigherPriorityTaskWoken);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
+		xQueueSendFromISR(g_spi_driver_arch_data.rx_event[0], &data, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
 void SPI2_IRQHandler(void){
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
+	static BaseType_t xHigherPriorityTaskWoken;
 	static SPI_TypeDef* SPIx = SPI2;
 	static uint8_t data;
 	
-	xResult = pdFAIL;	
-	if( SPI_I2S_GetITStatus(SPIx, SPI_I2S_IT_RXNE) ){
-		SPI_I2S_ClearITPendingBit(SPIx, SPI_I2S_IT_RXNE);
+	if( SPIx->SR & 0x01 ){
+		SPIx->SR = 0x00;
 		data = SPIx->DR;
 		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xQueueSendFromISR(g_spi_driver_arch_data.rx_event[1], &data, &xHigherPriorityTaskWoken);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
+		xQueueSendFromISR(g_spi_driver_arch_data.rx_event[1], &data, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
 void SPI3_IRQHandler(void){
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
+	static BaseType_t xHigherPriorityTaskWoken;
 	static SPI_TypeDef* SPIx = SPI3;
 	static uint8_t data;
 	
-	xResult = pdFAIL;	
-	if( SPI_I2S_GetITStatus(SPIx, SPI_I2S_IT_RXNE) ){
-		SPI_I2S_ClearITPendingBit(SPIx, SPI_I2S_IT_RXNE);
+	if( SPIx->SR & 0x01 ){
+		SPIx->SR = 0x00;
 		data = SPIx->DR;
 		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xQueueSendFromISR(g_spi_driver_arch_data.rx_event[2], &data, &xHigherPriorityTaskWoken);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
+		xQueueSendFromISR(g_spi_driver_arch_data.rx_event[2], &data, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
 // end of file

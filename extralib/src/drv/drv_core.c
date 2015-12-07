@@ -2,13 +2,18 @@
 #include "drv_errno.h"
 #include <string.h>
 #include <fcntl.h>
+#if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
+#elif defined(OS_UCOS)
+#include  <os.h>
+#include <os_cfg_app.h>
+#define portTICK_PERIOD_MS OS_CFG_TICK_RATE_HZ
+#endif
 
 int    errno = 0;
 struct platform_driver* g_list_drivers	= 0;
 extern init_fxn		___drv_init_begin;
 extern init_fxn		___drv_init_end;
-extern void LREP(char* s, ...);
 int platform_driver_register(struct platform_driver *driver){
 	int ret = -EPERM;
 	struct platform_driver *drv = 0;
@@ -249,8 +254,8 @@ int 	select(int fd, fd_set *readfds, fd_set *writefds,
 		
 		s_timeout = 0;
 		if(timeout){
-			s_timeout = timeout->tv_sec * 1000 / portTICK_PERIOD_MS;
-			s_timeout += timeout->tv_usec /1000 / portTICK_PERIOD_MS;
+			s_timeout = timeout->tv_sec * 1000 * portTICK_PERIOD_MS;
+			s_timeout += timeout->tv_usec /1000 * portTICK_PERIOD_MS;
 		}		
 		ret = drv->select(pdev, &readfd, &writefd, &errorfd, s_timeout);
 		if(ret > 0){

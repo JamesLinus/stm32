@@ -15,7 +15,7 @@
 **
 **  Environment : Atollic TrueSTUDIO(R)
 **
-**  Distribution: The file is distributed “as is,” without any warranty
+**  Distribution: The file is distributed ï¿½as is,ï¿½ without any warranty
 **                of any kind.
 **
 **  (c)Copyright Atollic AB.
@@ -121,7 +121,9 @@ SECTIONS
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
-
+     ___drv_init_begin = .;
+     KEEP (*(.drv_init))
+     ___drv_init_end = .;
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
   } >RAM AT> FLASH

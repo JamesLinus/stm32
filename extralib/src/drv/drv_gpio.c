@@ -1,15 +1,23 @@
 #include "../include/drv_api.h"
 #include "../include/drv_gpio.h"
-
+#if defined(STDPERIPH_DRIVER)
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_exti.h"
 #include "misc.h"
-
+#elif defined(STM32CUBEF4)
+#include <bsp.h>
+#endif
+#if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
 #include "event_groups.h"
+#elif defined(OS_UCOS)
+#include <os.h>
+#include <os_cfg_app.h>
+#define portTICK_PERIOD_MS OS_CFG_TICK_RATE_HZ
+#endif
 
 int 	gpio_init		(void);
 int 	gpio_open		(struct platform_device *dev, int flags);
@@ -20,7 +28,11 @@ int		gpio_ioctl		(struct platform_device *dev, int request, unsigned int argumen
 int		gpio_select	(struct platform_device *device, int *readfd, int *writefd, int *exceptfd, int timeout);
 
 struct gpio_driver_arch_data{
+#if defined(OS_FREERTOS)
 	EventGroupHandle_t	event;
+#elif defined(OS_UCOS)
+	OS_FLAG_GRP			event;
+#endif
 };
 struct gpio_driver_arch_data g_gpio_driver_arch_data;
 
@@ -47,12 +59,21 @@ static struct platform_driver g_gpio_driver = {
 };
 
 int gpio_init		(void){
+#if defined(OS_FREERTOS)
 	g_gpio_driver_arch_data.event = xEventGroupCreate();
+#elif defined(OS_UCOS)
+	OS_ERR os_err;
+	OSFlagCreate(&g_gpio_driver_arch_data.event,
+	                 "gpio event",
+	                  DEF_BIT_NONE,
+	                 &os_err);
+#endif
 	platform_driver_register(&g_gpio_driver);
 	return 0;
 }
 module_init(gpio_init);
 struct gpio_pin_ref g_gpio_pin_ref[] = {
+#if defined(STDPERIPH_DRIVER)
 	{
 		.GPIO_Pin = GPIO_Pin_0,
 		.GPIO_PinSource = GPIO_PinSource0,
@@ -133,8 +154,91 @@ struct gpio_pin_ref g_gpio_pin_ref[] = {
 		.GPIO_PinSource = GPIO_PinSource15,	
 		.NVIC_IRQChannel = EXTI15_10_IRQn,
 	},
+#elif defined(STM32CUBEF4)
+	{
+		.GPIO_Pin = DEF_BIT_00,
+//		.GPIO_PinSource = GPIO_PinSource0,
+//		.NVIC_IRQChannel = EXTI0_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_01,
+//		.GPIO_PinSource = GPIO_PinSource1,
+//		.NVIC_IRQChannel = EXTI1_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_02,
+//		.GPIO_PinSource = GPIO_PinSource2,
+//		.NVIC_IRQChannel = EXTI2_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_03,
+//		.GPIO_PinSource = GPIO_PinSource3,
+//		.NVIC_IRQChannel = EXTI3_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_04,
+//		.GPIO_PinSource = GPIO_PinSource4,
+//		.NVIC_IRQChannel = EXTI4_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_05,
+//		.GPIO_PinSource = GPIO_PinSource5,
+//		.NVIC_IRQChannel = EXTI9_5_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_06,
+//		.GPIO_PinSource = GPIO_PinSource6,
+//		.NVIC_IRQChannel = EXTI9_5_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_07,
+//		.GPIO_PinSource = GPIO_PinSource7,
+//		.NVIC_IRQChannel = EXTI9_5_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_08,
+//		.GPIO_PinSource = GPIO_PinSource8,
+//		.NVIC_IRQChannel = EXTI9_5_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_09,
+//		.GPIO_PinSource = GPIO_PinSource9,
+//		.NVIC_IRQChannel = EXTI9_5_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_10,
+//		.GPIO_PinSource = GPIO_PinSource10,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_11,
+//		.GPIO_PinSource = GPIO_PinSource11,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_12,
+//		.GPIO_PinSource = GPIO_PinSource12,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_13,
+//		.GPIO_PinSource = GPIO_PinSource13,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_14,
+//		.GPIO_PinSource = GPIO_PinSource14,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+	{
+		.GPIO_Pin = DEF_BIT_15,
+//		.GPIO_PinSource = GPIO_PinSource15,
+//		.NVIC_IRQChannel = EXTI15_10_IRQn,
+	},
+#endif
 };
 struct gpio_bank_ref g_gpio_bank_ref[] = {
+#if defined(STDPERIPH_DRIVER)
 	{
 		.GPIOx = GPIOA,
 		.RCC_AHB1Periph_GPIOx = RCC_AHB1Periph_GPIOA,
@@ -180,6 +284,53 @@ struct gpio_bank_ref g_gpio_bank_ref[] = {
 		.RCC_AHB1Periph_GPIOx = RCC_AHB1Periph_GPIOI,
 		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOI,
 	},
+#elif defined(STM32CUBEF4)
+	{
+		.GPIOx = GPIOA,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOA,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOA,
+	},
+		{
+		.GPIOx = GPIOB,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOB,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOB,
+	},
+		{
+		.GPIOx = GPIOC,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOC,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOC,
+	},
+		{
+		.GPIOx = GPIOD,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOD,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOD,
+	},
+		{
+		.GPIOx = GPIOE,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOE,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOE,
+	},
+		{
+		.GPIOx = GPIOF,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOF,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOF,
+	},
+		{
+		.GPIOx = GPIOG,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOG,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOG,
+	},
+		{
+		.GPIOx = GPIOH,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOH,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOH,
+	},
+		{
+		.GPIOx = GPIOI,
+		.RCC_AHB1Periph_GPIOx = BSP_PERIPH_ID_GPIOI,
+//		.EXTI_PortSourceGPIOx = EXTI_PortSourceGPIOI,
+	},
+#endif
 };
 //extern void LREP(char* s, ...);
 int 	gpio_open	(struct platform_device *dev, int flags){
@@ -187,14 +338,15 @@ int 	gpio_open	(struct platform_device *dev, int flags){
 	int bank = gpio_get_bank_index(dev->id);
 	int pin = gpio_get_pin_index(dev->id);
 	GPIO_InitTypeDef GPIO_InitStructure;
-	EXTI_InitTypeDef EXTI_InitStruct;
-	NVIC_InitTypeDef NVIC_InitStruct;
+//	EXTI_InitTypeDef EXTI_InitStruct;
+//	NVIC_InitTypeDef NVIC_InitStruct;
 	struct gpio_platform_data* data = (struct gpio_platform_data*)dev->dev.platform_data;
 	
 	if(bank < 0 || bank >= GPIO_BANK_COUNT ||
 		pin < 0 || pin >= GPIO_PIN_COUNT)
 		return ret;
 	
+#if defined(STDPERIPH_DRIVER)
 	RCC_AHB1PeriphClockCmd(g_gpio_bank_ref[bank].RCC_AHB1Periph_GPIOx, ENABLE);
 	GPIO_InitStructure.GPIO_Mode 	= data->dir;
 	GPIO_InitStructure.GPIO_Pin 	= (((uint16_t)0x01) << pin);
@@ -202,23 +354,32 @@ int 	gpio_open	(struct platform_device *dev, int flags){
 	GPIO_InitStructure.GPIO_Speed 	= GPIO_Speed_100MHz;
 	GPIO_InitStructure.GPIO_OType 	= GPIO_OType_PP;
 	GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIO_InitStructure);
+#elif defined(STM32CUBEF4)
+	BSP_PeriphEn(g_gpio_bank_ref[bank].RCC_AHB1Periph_GPIOx);
+	GPIO_InitStructure.Mode 	= data->dir;
+	GPIO_InitStructure.Pin 	= (((uint16_t)0x01) << pin);
+	GPIO_InitStructure.Pull 	= data->pull;
+	GPIO_InitStructure.Speed 	= GPIO_SPEED_FAST;
+	HAL_GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIO_InitStructure);
+#endif
+
 	
 	if(data->intr.mode != GPIO_INTR_MODE_DISABLE){
-		RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-		
-		SYSCFG_EXTILineConfig(g_gpio_bank_ref[bank].EXTI_PortSourceGPIOx, pin);
-		EXTI_InitStruct.EXTI_Line 		= (((uint32_t)1) << pin);
-		EXTI_InitStruct.EXTI_LineCmd 	= ENABLE;
-		EXTI_InitStruct.EXTI_Mode 		= data->intr.mode;
-		EXTI_InitStruct.EXTI_Trigger 	= data->intr.trigger;
-		EXTI_Init(&EXTI_InitStruct);
-
-		/* Add IRQ vector to NVIC */
-		NVIC_InitStruct.NVIC_IRQChannel 	= g_gpio_pin_ref[pin].NVIC_IRQChannel;
-		NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority 	= 6;
-		NVIC_InitStruct.NVIC_IRQChannelSubPriority 			= 0;
-		NVIC_InitStruct.NVIC_IRQChannelCmd 	= ENABLE;
-		NVIC_Init(&NVIC_InitStruct);		 
+//		RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+//
+//		SYSCFG_EXTILineConfig(g_gpio_bank_ref[bank].EXTI_PortSourceGPIOx, pin);
+//		EXTI_InitStruct.EXTI_Line 		= (((uint32_t)1) << pin);
+//		EXTI_InitStruct.EXTI_LineCmd 	= ENABLE;
+//		EXTI_InitStruct.EXTI_Mode 		= data->intr.mode;
+//		EXTI_InitStruct.EXTI_Trigger 	= data->intr.trigger;
+//		EXTI_Init(&EXTI_InitStruct);
+//
+//		/* Add IRQ vector to NVIC */
+//		NVIC_InitStruct.NVIC_IRQChannel 	= g_gpio_pin_ref[pin].NVIC_IRQChannel;
+//		NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority 	= 6;
+//		NVIC_InitStruct.NVIC_IRQChannelSubPriority 			= 0;
+//		NVIC_InitStruct.NVIC_IRQChannelCmd 	= ENABLE;
+//		NVIC_Init(&NVIC_InitStruct);
 	}
 	ret = 0;	
 	return ret;
@@ -235,7 +396,7 @@ int		gpio_read	(struct platform_device *dev, void* buf, int count){
 	int pin = gpio_get_pin_index(dev->id);
 	
 	if(count > 0){
-		*p = GPIO_ReadInputDataBit(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
+//		*p = GPIO_ReadInputDataBit(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
 		ret = 1;
 	}
 	return ret;
@@ -248,8 +409,12 @@ int		gpio_write	(struct platform_device *dev, const void* buf, int count){
 	int pin = gpio_get_pin_index(dev->id);
 	
 	if(count > 0){
+#if defined(STDPERIPH_DRIVER)
 		if(p[0] == 0) GPIO_ResetBits(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
 		else GPIO_SetBits(g_gpio_bank_ref[bank].GPIOx, (((uint16_t)0x01)<< pin));
+#elif defined(STM32CUBEF4)
+		HAL_GPIO_WritePin(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_Pin, (p[0] == 1) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+#endif
 		ret = 0;
 	}	
 		
@@ -262,7 +427,11 @@ int		gpio_ioctl	(struct platform_device *dev, int request, unsigned int argument
     
     switch(request){
         case GPIO_IOCTL_TOGGLE:{
+#if defined(STDPERIPH_DRIVER)
             GPIO_ToggleBits(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_Pin);
+#elif defined(STM32CUBEF4)
+            HAL_GPIO_TogglePin(g_gpio_bank_ref[bank].GPIOx, g_gpio_pin_ref[pin].GPIO_Pin);
+#endif
             ret = 0;
             break;
         }
@@ -272,7 +441,7 @@ int		gpio_ioctl	(struct platform_device *dev, int request, unsigned int argument
 }
 int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *exceptfd, int timeout){
 	int ret = -EPERM;
-	EventBits_t uxBits;
+//	EventBits_t uxBits;
 	uint8_t u8data;
 	int bank = gpio_get_bank_index(dev->id);
 	int pin = gpio_get_pin_index(dev->id);
@@ -282,260 +451,260 @@ int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *ex
 	if(writefd) 	*writefd = 0;
 	if(exceptfd) 	*exceptfd = 0;
 	if(readfd){
-		uxBits = xEventGroupWaitBits(g_gpio_driver_arch_data.event,
-				((uint32_t)1) << pin,
-				pdTRUE,
-				pdFALSE,
-				timeout);
-		if(uxBits & (((uint32_t)1) << pin)) {
-			*readfd = 1;
-			ret = 1;
-		}
-		else ret = 0;
+//		uxBits = xEventGroupWaitBits(g_gpio_driver_arch_data.event,
+//				((uint32_t)1) << pin,
+//				pdTRUE,
+//				pdFALSE,
+//				timeout);
+//		if(uxBits & (((uint32_t)1) << pin)) {
+//			*readfd = 1;
+//			ret = 1;
+//		}
+//		else ret = 0;
 	}	
 	return ret;
 }
-void EXTI0_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line0) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 0),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line0);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-    }
-}
-void EXTI1_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line1) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 1),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line1);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-    }
-}
-void EXTI2_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line2) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 2),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line2);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-    }
-}
-void EXTI3_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line3) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 3),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line3);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-    }
-}
-void EXTI4_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line4) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 4),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line4);
-		/* Was the message posted successfully? */
-		if( xResult != pdFAIL )
-		{
-		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-		  switch should be requested.  The macro used is port specific and will
-		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-		  the documentation page for the port being used. */
-		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-    }
-}
-void EXTI9_5_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-	xResult = pdFAIL;
-
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line5) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 5),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line5);
-    }
-    if (EXTI_GetITStatus(EXTI_Line6) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 6),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line6);
-    }
-    if (EXTI_GetITStatus(EXTI_Line7) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 7),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line7);
-    }
-    if (EXTI_GetITStatus(EXTI_Line8) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 8),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line8);
-    }
-    if (EXTI_GetITStatus(EXTI_Line9) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 9),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line9);
-    }
-	/* Was the message posted successfully? */
-	if( xResult != pdFAIL )
-	{
-	  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-	  switch should be requested.  The macro used is port specific and will
-	  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-	  the documentation page for the port being used. */
-	  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-	}
-}
-void EXTI15_10_IRQHandler(void) {
-	static BaseType_t xHigherPriorityTaskWoken, xResult;
-	xResult = pdFAIL;
-	/* Make sure that interrupt flag is set */
-	if (EXTI_GetITStatus(EXTI_Line10) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 10),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line10);
-    }
-    if (EXTI_GetITStatus(EXTI_Line11) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 11),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line11);
-    }
-    if (EXTI_GetITStatus(EXTI_Line12) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 12),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line12);
-    }
-    if (EXTI_GetITStatus(EXTI_Line13) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 13),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line13);
-    }
-    if (EXTI_GetITStatus(EXTI_Line14) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 14),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line14);
-    }
-    if (EXTI_GetITStatus(EXTI_Line15) != RESET) {
-		xHigherPriorityTaskWoken = pdFALSE;
-		xResult = xEventGroupSetBitsFromISR(
-				g_gpio_driver_arch_data.event, 
-				(((uint8_t)1)<< 15),
-				&xHigherPriorityTaskWoken);
-		/* Clear interrupt flag */
-		EXTI_ClearITPendingBit(EXTI_Line15);
-    }
-    /* Was the message posted successfully? */
-	if( xResult != pdFAIL )
-	{
-	  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-	  switch should be requested.  The macro used is port specific and will
-	  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-	  the documentation page for the port being used. */
-	  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-	}
-}
+//void EXTI0_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line0) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 0),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line0);
+//		/* Was the message posted successfully? */
+//		if( xResult != pdFAIL )
+//		{
+//		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//		  switch should be requested.  The macro used is port specific and will
+//		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//		  the documentation page for the port being used. */
+//		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//		}
+//    }
+//}
+//void EXTI1_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line1) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 1),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line1);
+//		/* Was the message posted successfully? */
+//		if( xResult != pdFAIL )
+//		{
+//		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//		  switch should be requested.  The macro used is port specific and will
+//		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//		  the documentation page for the port being used. */
+//		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//		}
+//    }
+//}
+//void EXTI2_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line2) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 2),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line2);
+//		/* Was the message posted successfully? */
+//		if( xResult != pdFAIL )
+//		{
+//		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//		  switch should be requested.  The macro used is port specific and will
+//		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//		  the documentation page for the port being used. */
+//		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//		}
+//    }
+//}
+//void EXTI3_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line3) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 3),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line3);
+//		/* Was the message posted successfully? */
+//		if( xResult != pdFAIL )
+//		{
+//		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//		  switch should be requested.  The macro used is port specific and will
+//		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//		  the documentation page for the port being used. */
+//		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//		}
+//    }
+//}
+//void EXTI4_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line4) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 4),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line4);
+//		/* Was the message posted successfully? */
+//		if( xResult != pdFAIL )
+//		{
+//		  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//		  switch should be requested.  The macro used is port specific and will
+//		  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//		  the documentation page for the port being used. */
+//		  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//		}
+//    }
+//}
+//void EXTI9_5_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//	xResult = pdFAIL;
+//
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line5) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 5),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line5);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line6) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 6),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line6);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line7) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 7),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line7);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line8) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 8),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line8);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line9) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 9),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line9);
+//    }
+//	/* Was the message posted successfully? */
+//	if( xResult != pdFAIL )
+//	{
+//	  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//	  switch should be requested.  The macro used is port specific and will
+//	  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//	  the documentation page for the port being used. */
+//	  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//	}
+//}
+//void EXTI15_10_IRQHandler(void) {
+//	static BaseType_t xHigherPriorityTaskWoken, xResult;
+//	xResult = pdFAIL;
+//	/* Make sure that interrupt flag is set */
+//	if (EXTI_GetITStatus(EXTI_Line10) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 10),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line10);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line11) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 11),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line11);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line12) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 12),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line12);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line13) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 13),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line13);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line14) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 14),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line14);
+//    }
+//    if (EXTI_GetITStatus(EXTI_Line15) != RESET) {
+//		xHigherPriorityTaskWoken = pdFALSE;
+//		xResult = xEventGroupSetBitsFromISR(
+//				g_gpio_driver_arch_data.event,
+//				(((uint8_t)1)<< 15),
+//				&xHigherPriorityTaskWoken);
+//		/* Clear interrupt flag */
+//		EXTI_ClearITPendingBit(EXTI_Line15);
+//    }
+//    /* Was the message posted successfully? */
+//	if( xResult != pdFAIL )
+//	{
+//	  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+//	  switch should be requested.  The macro used is port specific and will
+//	  be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+//	  the documentation page for the port being used. */
+//	  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//	}
+//}
 // end of file

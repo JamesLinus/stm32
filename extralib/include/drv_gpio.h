@@ -1,11 +1,11 @@
 #ifndef DRV_GPIO_H__
 #define DRV_GPIO_H__
 #include <stdint.h>
+#if defined(STDPERIPH_DRIVER)
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_exti.h"
 #include "misc.h"
-
 #define GPIO_OUTPUT	GPIO_Mode_OUT
 #define GPIO_INPUT	GPIO_Mode_IN
 #define GPIO_NOPULL GPIO_PuPd_NOPULL
@@ -17,6 +17,22 @@
 #define GPIO_INTR_TRIGGER_RISING			EXTI_Trigger_Rising
 #define GPIO_INTR_TRIGGER_FALLING			EXTI_Trigger_Falling
 #define GPIO_INTR_TRIGGER_RISING_FALLING	EXTI_Trigger_Rising_Falling
+#elif defined(STM32CUBEF4)
+#include  <stm32f4xx_hal.h>
+#define GPIO_OUTPUT					GPIO_MODE_OUTPUT_PP
+#define GPIO_INPUT					GPIO_MODE_INPUT
+//#define GPIO_NOPULL 				GPIO_NOPULL
+
+#define GPIO_INTR_MODE_INTERRUPT	((uint32_t)0x10010000)
+#define GPIO_INTR_MODE_EVENT		((uint32_t)0x10020000)
+#define GPIO_INTR_MODE_DISABLE		0
+
+#define GPIO_INTR_TRIGGER_RISING			((uint32_t)0x00100000)
+#define GPIO_INTR_TRIGGER_FALLING			((uint32_t)0x00200000)
+#define GPIO_INTR_TRIGGER_RISING_FALLING	((uint32_t)0x00300000)
+#endif
+
+
 struct gpio_platform_data_interrupt{
 	uint8_t mode;
 	uint8_t trigger;

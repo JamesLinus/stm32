@@ -19,6 +19,7 @@ OS_LIB_DIR=../opensource/uCOS/uC-LIB
 OS_SERIAL_DIR=../opensource/uCOS/uC-Serial
 STM32F4_HAL_DIR=../opensource/STM32CubeF4/Drivers/STM32F4xx_HAL_Driver
 CMSIS_DIR=../opensource/STM32CubeF4/Drivers/CMSIS
+EXTRA_LIB_DIR=../extralib
 ###
 # Find source files
 ASOURCES+=$(shell find -L $(SRC_DIR) -name '*.s')
@@ -44,6 +45,10 @@ INC+=$(shell find -L $(OS_LIB_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(OS_SERIAL_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(STM32F4_HAL_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(CMSIS_DIR) -name '*.h' -exec dirname {} \; | uniq)
+INC+=$(shell find -L $(EXTRA_LIB_DIR) -name '*.h' -exec dirname {} \; | uniq)
+
+CSOURCES+=$(EXTRA_LIB_DIR)/src/drv/drv_core.c
+CSOURCES+=$(EXTRA_LIB_DIR)/src/drv/drv_gpio.c
 #INC+= $(DRIVER_DIR)/include
 INCLUDES=$(INC:%=-I%)
 # Create object list
@@ -59,7 +64,7 @@ BIN=outp.bin
 MCFLAGS=-mcpu=cortex-m4 -mthumb -mlittle-endian \
 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 # COMPILE FLAGS
-DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DSTM32F407xx -DHSE_VALUE=8000000
+DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DSTM32F407xx -DHSE_VALUE=8000000 -DSTM32CUBEF4 -DOS_UCOS
 CFLAGS  =-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 # LINKER FLAGS
 LDSCRIPT= stm32f4_flash.ld

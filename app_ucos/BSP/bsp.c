@@ -61,10 +61,10 @@
 #define  BSP_BIT_RCC_PLLCFGR_PLLQ                7u
 
 
-#define  BSP_GPIOG_LED1                        DEF_BIT_06
-#define  BSP_GPIOG_LED2                        DEF_BIT_08
-#define  BSP_GPIOI_LED3                        DEF_BIT_09
-#define  BSP_GPIOC_LED4                        DEF_BIT_07
+#define  BSP_GPIO_LED1                        DEF_BIT_12
+#define  BSP_GPIO_LED2                        DEF_BIT_13
+#define  BSP_GPIO_LED3                        DEF_BIT_14
+#define  BSP_GPIO_LED4                        DEF_BIT_15
 
 /*
 *********************************************************************************************************
@@ -328,26 +328,14 @@ static void  BSP_LED_Init()
     GPIO_InitTypeDef  gpio_init;
 
 
-    BSP_PeriphEn(BSP_PERIPH_ID_GPIOG);                          /* Configure GPIOG for LED1 and LED2                    */
+    BSP_PeriphEn(BSP_PERIPH_ID_GPIOD);                          /* Configure GPIOG for LED1 and LED2                    */
 
-    gpio_init.Pin   = BSP_GPIOG_LED1 | BSP_GPIOG_LED2;
-    gpio_init.Pin   = BSP_GPIOG_LED1 | BSP_GPIOG_LED2;
+    gpio_init.Pin   = BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4;
     gpio_init.Mode  = GPIO_MODE_OUTPUT_PP;
     gpio_init.Pull  = GPIO_PULLUP;
     gpio_init.Speed = GPIO_SPEED_HIGH;
 
-    HAL_GPIO_Init(GPIOG, &gpio_init);
-
-    BSP_PeriphEn(BSP_PERIPH_ID_GPIOI);                          /* Configure GPIOI for LED3                             */
-
-    gpio_init.Pin = BSP_GPIOI_LED3;
-    HAL_GPIO_Init(GPIOI, &gpio_init);
-
-
-    BSP_PeriphEn(BSP_PERIPH_ID_GPIOC);                          /* Configure GPIOC for LED4                             */
-
-    gpio_init.Pin = BSP_GPIOC_LED4;
-    HAL_GPIO_Init(GPIOC, &gpio_init);
+    HAL_GPIO_Init(GPIOD, &gpio_init);
 }
 
 
@@ -377,29 +365,27 @@ void  BSP_LED_On (CPU_INT08U  led)
 {
     switch (led) {
         case 0u:
-             HAL_GPIO_WritePin(GPIOG, (BSP_GPIOG_LED1 | BSP_GPIOG_LED2), GPIO_PIN_SET);
-             HAL_GPIO_WritePin(GPIOI, BSP_GPIOI_LED3, GPIO_PIN_SET);
-             HAL_GPIO_WritePin(GPIOC, BSP_GPIOC_LED4, GPIO_PIN_SET);
+             HAL_GPIO_WritePin(GPIOD, (BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4), GPIO_PIN_SET);
              break;
 
 
         case 1u:
-             HAL_GPIO_WritePin(GPIOG, BSP_GPIOG_LED1, GPIO_PIN_SET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED1, GPIO_PIN_SET);
              break;
 
 
         case 2u:
-             HAL_GPIO_WritePin(GPIOG, BSP_GPIOG_LED2, GPIO_PIN_SET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED2, GPIO_PIN_SET);
              break;
 
 
         case 3u:
-             HAL_GPIO_WritePin(GPIOI, BSP_GPIOI_LED3, GPIO_PIN_SET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED3, GPIO_PIN_SET);
              break;
 
 
         case 4u:
-             HAL_GPIO_WritePin(GPIOC, BSP_GPIOC_LED4, GPIO_PIN_SET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED4, GPIO_PIN_SET);
              break;
 
 
@@ -435,29 +421,27 @@ void  BSP_LED_Off (CPU_INT08U led)
 {
     switch (led) {
         case 0u:
-             HAL_GPIO_WritePin(GPIOG, (BSP_GPIOG_LED1 | BSP_GPIOG_LED2), GPIO_PIN_RESET);
-             HAL_GPIO_WritePin(GPIOI, BSP_GPIOI_LED3, GPIO_PIN_RESET);
-             HAL_GPIO_WritePin(GPIOC, BSP_GPIOC_LED4, GPIO_PIN_RESET);
+             HAL_GPIO_WritePin(GPIOD, (BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4), GPIO_PIN_RESET);
              break;
 
 
         case 1u:
-             HAL_GPIO_WritePin(GPIOG, BSP_GPIOG_LED1, GPIO_PIN_RESET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED1, GPIO_PIN_RESET);
              break;
 
 
         case 2u:
-             HAL_GPIO_WritePin(GPIOG, BSP_GPIOG_LED2, GPIO_PIN_RESET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED2, GPIO_PIN_RESET);
              break;
 
 
         case 3u:
-             HAL_GPIO_WritePin(GPIOI, BSP_GPIOI_LED3, GPIO_PIN_RESET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED3, GPIO_PIN_RESET);
              break;
 
 
         case 4u:
-             HAL_GPIO_WritePin(GPIOC, BSP_GPIOC_LED4, GPIO_PIN_RESET);
+             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED4, GPIO_PIN_RESET);
              break;
 
 
@@ -493,29 +477,27 @@ void  BSP_LED_Toggle (CPU_INT08U  led)
 {
     switch (led) {
         case 0u:
-             HAL_GPIO_TogglePin(GPIOG,(BSP_GPIOG_LED1 | BSP_GPIOG_LED2));
-             HAL_GPIO_TogglePin(GPIOI, BSP_GPIOI_LED3);
-             HAL_GPIO_TogglePin(GPIOC, BSP_GPIOC_LED4);
+             HAL_GPIO_TogglePin(GPIOD,(BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4));
              break;
 
 
         case 1u:
-             HAL_GPIO_TogglePin(GPIOG,BSP_GPIOG_LED1);
+             HAL_GPIO_TogglePin(GPIOD,BSP_GPIO_LED1);
              break;
 
 
         case 2u:
-             HAL_GPIO_TogglePin(GPIOG, BSP_GPIOG_LED2);
+             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED2);
              break;
 
 
         case 3u:
-             HAL_GPIO_TogglePin(GPIOI, BSP_GPIOI_LED3);
+             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED3);
              break;
 
 
         case 4u:
-             HAL_GPIO_TogglePin(GPIOC, BSP_GPIOC_LED4);
+             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED4);
              break;
 
 

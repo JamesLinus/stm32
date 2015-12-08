@@ -8,7 +8,7 @@ int pthread_create (pthread_t * __newthread,
 	__newthread->attr = (pthread_attr_t*)__attr;
 	__newthread->start_routine = __start_routine;
 	__newthread->arg = __arg;
-
+#if defined(OS_FREERTOS)
 	  xTaskCreate(
 			  (void (*)(void*))__newthread->start_routine,/* Function pointer */
 			  "",                          				  /* Task name - for debugging only*/
@@ -19,6 +19,25 @@ int pthread_create (pthread_t * __newthread,
 			  __newthread->prio,           			      /* Task priority*/
 			  &__newthread->handle         				  /* Task handle */
 	  );
+#elif defined(OS_UCOS)
+	  OS_ERR   err;
+	  LIB_ERR  lib_err;
+	  // alloc mem
+	  __newthread->attr->stack = Mem_SegAlloc(0, 0, __newthread->attr->stack_size, &lib_err);
+		OSTaskCreate(&__newthread->handle,                              /* Create the start task                                */
+					  "",
+					  (OS_TASK_PTR)__newthread->start_routine,
+					  __newthread->arg,
+					  __newthread->prio,
+					  __newthread->attr->stack,
+					  __newthread->attr->stack_size/10,
+					  __newthread->attr->stack_size,
+					  0u,
+					  0u,
+					  0u,
+					 (OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+					 &err);
+#endif
 	  return 0;
 }
 int pthread_attr_getstackaddr (const pthread_attr_t *

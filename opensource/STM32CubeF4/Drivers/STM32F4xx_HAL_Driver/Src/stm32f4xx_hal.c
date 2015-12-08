@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    stm32f4xx_hal.c
   * @author  MCD Application Team
-  * @version V1.3.0
-  * @date    09-March-2015
+  * @version V1.4.2
+  * @date    10-November-2015
   * @brief   HAL module driver.
   *          This is the common part of the HAL initialization
   *
@@ -68,11 +68,11 @@
   * @{
   */
 /**
-  * @brief STM32F4xx HAL Driver version number V1.3.0
+  * @brief STM32F4xx HAL Driver version number V1.4.2
   */
 #define __STM32F4xx_HAL_VERSION_MAIN   (0x01) /*!< [31:24] main version */
-#define __STM32F4xx_HAL_VERSION_SUB1   (0x03) /*!< [23:16] sub1 version */
-#define __STM32F4xx_HAL_VERSION_SUB2   (0x00) /*!< [15:8]  sub2 version */
+#define __STM32F4xx_HAL_VERSION_SUB1   (0x04) /*!< [23:16] sub1 version */
+#define __STM32F4xx_HAL_VERSION_SUB2   (0x02) /*!< [15:8]  sub2 version */
 #define __STM32F4xx_HAL_VERSION_RC     (0x00) /*!< [7:0]  release candidate */ 
 #define __STM32F4xx_HAL_VERSION         ((__STM32F4xx_HAL_VERSION_MAIN << 24)\
                                         |(__STM32F4xx_HAL_VERSION_SUB1 << 16)\
@@ -228,6 +228,9 @@ HAL_StatusTypeDef HAL_DeInit(void)
   */
 __weak void HAL_MspInit(void)
 {
+  /* Prevent unused argument(s) compilation warning */
+  __IO uint32_t tmpreg = 0x00;
+  UNUSED(tmpreg);
   /* NOTE : This function Should not be modified, when the callback is needed,
             the HAL_MspInit could be implemented in the user file
    */
@@ -239,6 +242,9 @@ __weak void HAL_MspInit(void)
   */
 __weak void HAL_MspDeInit(void)
 {
+  /* Prevent unused argument(s) compilation warning */
+  __IO uint32_t tmpreg = 0x00;
+  UNUSED(tmpreg);
   /* NOTE : This function Should not be modified, when the callback is needed,
             the HAL_MspDeInit could be implemented in the user file
    */ 
@@ -479,7 +485,8 @@ void HAL_DisableCompensationCell(void)
   *(__IO uint32_t *)CMPCR_CMP_PD_BB = (uint32_t)DISABLE;
 }
 
-#if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx)|| defined(STM32F439xx)
+#if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx)|| defined(STM32F439xx) ||\
+    defined(STM32F469xx) || defined(STM32F479xx)
 /**
   * @brief  Enables the Internal FLASH Bank Swapping.
   *   
@@ -510,7 +517,7 @@ void HAL_DisableMemorySwappingBank(void)
 
   *(__IO uint32_t *)UFB_MODE_BB = (uint32_t)DISABLE;
 }
-#endif /* STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx */
+#endif /* STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || STM32F469xx || STM32F479xx */
 
 /**
   * @}

@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    stm32f4xx_hal_sai.h
   * @author  MCD Application Team
-  * @version V1.3.0
-  * @date    09-March-2015
+  * @version V1.4.2
+  * @date    10-November-2015
   * @brief   Header file of SAI HAL module.
   ******************************************************************************
   * @attention
@@ -49,7 +49,8 @@
 /** @addtogroup STM32F4xx_HAL_Driver
   * @{
   */
-#if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx) || defined(STM32F439xx) || defined(STM32F446xx)
+#if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx) || defined(STM32F439xx) ||\
+    defined(STM32F446xx) || defined(STM32F469xx) || defined(STM32F479xx)
 
 /** @addtogroup SAI
   * @{
@@ -101,7 +102,7 @@ typedef struct
 
   uint32_t NoDivider;           /*!< Specifies whether master clock will be divided or not.
                                      This parameter can be a value of @ref SAI_Block_NoDivider
-                                     @note: If bit NODIV in the SAI_xCR1 register is cleared, the frame length 
+                                     @note  If bit NODIV in the SAI_xCR1 register is cleared, the frame length 
                                             should be aligned to a number equal to a power of 2, from 8 to 256.
                                             If bit NODIV in the SAI_xCR1 register is set, the frame length can 
                                             take any of the values without constraint since the input clock of 
@@ -155,7 +156,7 @@ typedef struct
 
   uint32_t FrameLength;         /*!< Specifies the Frame length, the number of SCK clocks for each audio frame.
                                      This parameter must be a number between Min_Data = 8 and Max_Data = 256.
-                                     @note: If master clock MCLK_x pin is declared as an output, the frame length
+                                     @note  If master clock MCLK_x pin is declared as an output, the frame length
                                             should be aligned to a number equal to power of 2 in order to keep 
                                             in an audio frame, an integer number of MCLK pulses by bit Clock. */                                               
                                                                             
@@ -670,7 +671,7 @@ typedef struct __SAI_HandleTypeDef
 /** @addtogroup SAI_Exported_Functions_Group1
   * @{
   */
-HAL_StatusTypeDef HAL_SAI_InitProtocol(SAI_HandleTypeDef *hsai, uint32_t protocol, uint32_t datasize, uint32_t nbslot);    
+HAL_StatusTypeDef HAL_SAI_InitProtocol(SAI_HandleTypeDef *hsai, uint32_t protocol, uint32_t datasize, uint32_t nbslot);
 HAL_StatusTypeDef HAL_SAI_Init(SAI_HandleTypeDef *hsai);
 HAL_StatusTypeDef HAL_SAI_DeInit (SAI_HandleTypeDef *hsai);
 void HAL_SAI_MspInit(SAI_HandleTypeDef *hsai);
@@ -889,8 +890,8 @@ uint32_t HAL_SAI_GetError(SAI_HandleTypeDef *hsai);
 /**
   * @}
   */
-  
-#endif /* STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || STM32F446xx */
+
+#endif /* STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || STM32F446xx || STM32F469xx || STM32F479xx */
 /**
   * @}
   */ 

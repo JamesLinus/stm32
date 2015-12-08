@@ -2,12 +2,12 @@
 #include "drv_errno.h"
 #include <string.h>
 #include <fcntl.h>
+#include <lib_defines.h>
 #if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #elif defined(OS_UCOS)
-#include  <os.h>
+#include <os.h>
 #include <os_cfg_app.h>
-#define portTICK_PERIOD_MS OS_CFG_TICK_RATE_HZ
 #endif
 
 int    errno = 0;
@@ -254,8 +254,8 @@ int 	select(int fd, fd_set *readfds, fd_set *writefds,
 		
 		s_timeout = 0;
 		if(timeout){
-			s_timeout = timeout->tv_sec * 1000 * portTICK_PERIOD_MS;
-			s_timeout += timeout->tv_usec /1000 * portTICK_PERIOD_MS;
+			s_timeout = timeout->tv_sec * 1000 * TICK_RATE_HZ;
+			s_timeout += timeout->tv_usec /1000 * TICK_RATE_HZ;
 		}		
 		ret = drv->select(pdev, &readfd, &writefd, &errorfd, s_timeout);
 		if(ret > 0){

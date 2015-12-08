@@ -44,10 +44,9 @@
 
 #define   BSP_MODULE
 #include  <bsp.h>
-#include  <bsp_os.h>
 
 #include  <stm32f4xx_hal.h>
-
+#include <os.h>
 
 /*
 *********************************************************************************************************
@@ -59,12 +58,6 @@
 #define  BSP_BIT_RCC_PLLCFGR_PLLN              336u
 #define  BSP_BIT_RCC_PLLCFGR_PLLP                2u
 #define  BSP_BIT_RCC_PLLCFGR_PLLQ                7u
-
-
-#define  BSP_GPIO_LED1                        DEF_BIT_12
-#define  BSP_GPIO_LED2                        DEF_BIT_13
-#define  BSP_GPIO_LED3                        DEF_BIT_14
-#define  BSP_GPIO_LED4                        DEF_BIT_15
 
 /*
 *********************************************************************************************************
@@ -127,8 +120,6 @@
 *                                      LOCAL FUNCTION PROTOTYPES
 *********************************************************************************************************
 */
-
-static  void  BSP_LED_Init        (void);
 
 
 /*
@@ -201,8 +192,6 @@ void  BSP_Init (void)
     {
       __HAL_FLASH_PREFETCH_BUFFER_ENABLE();                     /* Enable the Flash prefetch                            */
     }
-
-    BSP_LED_Init();                                             /* Init LEDs.                                           */
 
 #ifdef TRACE_EN                                                 /* See project / compiler preprocessor options.         */
     BSP_CPU_REG_DBGMCU_CR |=  BSP_DBGMCU_CR_TRACE_IOEN_MASK;    /* Enable tracing (see Note #2).                        */
@@ -301,207 +290,4 @@ void BSP_Tick_Init (void)
 }
 
 
-/*
-*********************************************************************************************************
-*                                           BSP_LED_Init()
-*
-* Description : Initialize any or all the LEDs on the board.
-*
-* Argument(s) : led     The ID of the LED to control:
-*
-*                       0    inialize ALL  LEDs
-*                       1    inialize user LED1
-*                       2    inialize user LED2
-*                       3    inialize user LED3
-*                       4    inialize user LED4
-*
-* Return(s)   : none.
-*
-* Caller(s)   : Application.
-*
-* Note(s)     : none.
-*********************************************************************************************************
-*/
 
-static void  BSP_LED_Init()
-{
-    GPIO_InitTypeDef  gpio_init;
-
-
-    BSP_PeriphEn(BSP_PERIPH_ID_GPIOD);                          /* Configure GPIOG for LED1 and LED2                    */
-
-    gpio_init.Pin   = BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4;
-    gpio_init.Mode  = GPIO_MODE_OUTPUT_PP;
-    gpio_init.Pull  = GPIO_PULLUP;
-    gpio_init.Speed = GPIO_SPEED_HIGH;
-
-    HAL_GPIO_Init(GPIOD, &gpio_init);
-}
-
-
-/*
-*********************************************************************************************************
-*                                             BSP_LED_On()
-*
-* Description : Turn ON any or all the LEDs on the board.
-*
-* Argument(s) : led     The ID of the LED to control:
-*
-*                       0    turns ON ALL  LEDs
-*                       1    turns ON user LED1
-*                       2    turns ON user LED2
-*                       3    turns ON user LED3
-*                       4    turns ON user LED4
-*
-* Return(s)   : none.
-*
-* Caller(s)   : Application.
-*
-* Note(s)     : none.
-*********************************************************************************************************
-*/
-
-void  BSP_LED_On (CPU_INT08U  led)
-{
-    switch (led) {
-        case 0u:
-             HAL_GPIO_WritePin(GPIOD, (BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4), GPIO_PIN_SET);
-             break;
-
-
-        case 1u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED1, GPIO_PIN_SET);
-             break;
-
-
-        case 2u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED2, GPIO_PIN_SET);
-             break;
-
-
-        case 3u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED3, GPIO_PIN_SET);
-             break;
-
-
-        case 4u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED4, GPIO_PIN_SET);
-             break;
-
-
-        default:
-             break;
-    }
-}
-
-
-/*
-*********************************************************************************************************
-*                                              BSP_LED_Off()
-*
-* Description : Turn OFF any or all the LEDs on the board.
-*
-* Argument(s) : led     The ID of the LED to control:
-*
-*                       0    turns OFF ALL the LEDs
-*                       1    turns OFF user LED1
-*                       2    turns OFF user LED2
-*                       3    turns OFF user LED3
-*                       4    turns OFF user LED4
-*
-* Return(s)   : none.
-*
-* Caller(s)   : Application.
-*
-* Note(s)     : none.
-*********************************************************************************************************
-*/
-
-void  BSP_LED_Off (CPU_INT08U led)
-{
-    switch (led) {
-        case 0u:
-             HAL_GPIO_WritePin(GPIOD, (BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4), GPIO_PIN_RESET);
-             break;
-
-
-        case 1u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED1, GPIO_PIN_RESET);
-             break;
-
-
-        case 2u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED2, GPIO_PIN_RESET);
-             break;
-
-
-        case 3u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED3, GPIO_PIN_RESET);
-             break;
-
-
-        case 4u:
-             HAL_GPIO_WritePin(GPIOD, BSP_GPIO_LED4, GPIO_PIN_RESET);
-             break;
-
-
-        default:
-             break;
-    }
-}
-
-
-/*
-*********************************************************************************************************
-*                                            BSP_LED_Toggle()
-*
-* Description : TOGGLE any or all the LEDs on the board.
-*
-* Argument(s) : led     The ID of the LED to control:
-*
-*                       0    TOGGLE ALL the LEDs
-*                       1    TOGGLE user LED1
-*                       2    TOGGLE user LED2
-*                       3    TOGGLE user LED3
-*                       4    TOGGLE user LED4
-*
-* Return(s)   : none.
-*
-* Caller(s)   : Application.
-*
-* Note(s)     : none.
-*********************************************************************************************************
-*/
-
-void  BSP_LED_Toggle (CPU_INT08U  led)
-{
-    switch (led) {
-        case 0u:
-             HAL_GPIO_TogglePin(GPIOD,(BSP_GPIO_LED1 | BSP_GPIO_LED2 | BSP_GPIO_LED3 | BSP_GPIO_LED4));
-             break;
-
-
-        case 1u:
-             HAL_GPIO_TogglePin(GPIOD,BSP_GPIO_LED1);
-             break;
-
-
-        case 2u:
-             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED2);
-             break;
-
-
-        case 3u:
-             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED3);
-             break;
-
-
-        case 4u:
-             HAL_GPIO_TogglePin(GPIOD, BSP_GPIO_LED4);
-             break;
-
-
-        default:
-             break;
-    }
-}

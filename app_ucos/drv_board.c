@@ -1,7 +1,7 @@
 #include <drv_api.h>
-#include <drv_usart.h>
+//#include <drv_usart.h>
 #include <drv_gpio.h>
-#include <spidev.h>
+//#include <spidev.h>
 /*usart*/
 //struct usart_platform_data g_usart_1_data = {
 //	.tx_pin = gpio_get_pin('B', 6),// PB6
@@ -25,14 +25,14 @@ struct gpio_platform_data g_gpio_output_data = {
 //	.dir 	= GPIO_OUTPUT,
 //	.pull 	= GPIO_PuPd_NOPULL,
 //};
-//struct gpio_platform_data g_gpio_button_data = {
-//	.dir 	= GPIO_INPUT,
-//	.pull 	= GPIO_NOPULL,
-//	.intr 	= {
-//		.mode 		= GPIO_INTR_MODE_INTERRUPT,
-//		.trigger 	= GPIO_INTR_TRIGGER_FALLING,
-//	},
-//};
+struct gpio_platform_data g_gpio_button_data = {
+	.dir 	= GPIO_INPUT,
+	.pull 	= GPIO_NOPULL,
+	.intr 	= {
+		.mode 		= GPIO_INTR_MODE_INTERRUPT,
+		.trigger 	= GPIO_INTR_TRIGGER_FALLING,
+	},
+};
 struct platform_device g_gpio_led_green_device = {
 	.dev_name 	= "led-green",
 	.name     	= "gpio-drv",
@@ -69,15 +69,15 @@ struct platform_device g_gpio_led_blue_device = {
 	.id 		= gpio_get_pin('D', 15),	// D15
 	.next 		= 0,
 };
-//struct platform_device g_gpio_button_device = {
-//	.dev_name 	= "button",
-//	.name     	= "gpio-drv",
-//	.dev 		= {
-//		.platform_data = &g_gpio_button_data,
-//	},
-//	.id 		= gpio_get_pin('A', 0),	// A0
-//	.next 		= 0,
-//};
+struct platform_device g_gpio_button_device = {
+	.dev_name 	= "button",
+	.name     	= "gpio-drv",
+	.dev 		= {
+		.platform_data = &g_gpio_button_data,
+	},
+	.id 		= gpio_get_pin('A', 0),	// A0
+	.next 		= 0,
+};
 //struct platform_device g_gpio_spi1_cs_device = {
 //	.dev_name 	= "spi-1-cs",
 //	.name     	= "gpio-drv",
@@ -128,7 +128,7 @@ int board_register_devices(){
 	platform_device_register(&g_gpio_led_green_device);
 	platform_device_register(&g_gpio_led_orange_device);
 	platform_device_register(&g_gpio_led_blue_device);
-//	platform_device_register(&g_gpio_button_device);
+	platform_device_register(&g_gpio_button_device);
 //	platform_device_register(&g_gpio_spi1_cs_device);
 //	platform_device_register(&g_gpio_rf_reset_device);
 //	platform_device_register(&g_gpio_rf_intr_device);

@@ -1,9 +1,13 @@
 #ifndef PTHREAD_H
 #define	PTHREAD_H
 #include "lib_defines.h"
+#if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #include "task.h"
-
+#elif defined(OS_UCOS)
+#include  <os.h>
+#include  <os_app_hooks.h>
+#endif
 typedef struct
 {
     void*         stack;
@@ -14,7 +18,11 @@ typedef struct {
     void *(*start_routine) (void *);
     void *arg;
     unsigned char prio;
+#if defined(OS_FREERTOS)
     TaskHandle_t handle;
+#elif defined(OS_UCOS)
+    OS_TCB		handle;
+#endif
 }pthread_t;
 
 /* Create a new thread, starting with execution of START-ROUTINE

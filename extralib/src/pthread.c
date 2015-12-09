@@ -5,33 +5,38 @@ int pthread_create (pthread_t * __newthread,
 			   const pthread_attr_t * __attr,
 			   void *(*__start_routine) (void *),
 			   void * __arg){
-	__newthread->attr = (pthread_attr_t*)__attr;
-	__newthread->start_routine = __start_routine;
-	__newthread->arg = __arg;
+#if defined(OS_FREERTOS)
+#error "implement"
+#elif defined(OS_UCOS)
+	OS_ERR   err;
+	LIB_ERR  lib_err;
+	(*__newthread) = (pthread_t)Mem_SegAlloc(0, 0, sizeof(struct __pthread_t), &lib_err);
+#endif
+	(*__newthread)->attr = (pthread_attr_t*)__attr;
+	(*__newthread)->start_routine = __start_routine;
+	(*__newthread)->arg = __arg;
 #if defined(OS_FREERTOS)
 	  xTaskCreate(
-			  (void (*)(void*))__newthread->start_routine,/* Function pointer */
+			  (void (*)(void*))(*__newthread)->start_routine,/* Function pointer */
 			  "",                          				  /* Task name - for debugging only*/
-			  __newthread->attr ?
-					  __newthread->attr->stack_size
+			  (*__newthread)->attr ?
+					  (*__newthread)->attr->stack_size
 					  : configMINIMAL_STACK_SIZE,         /* Stack depth in words */
-			  (void*) __newthread->arg,                   /* Pointer to tasks arguments (parameter) */
-			  __newthread->prio,           			      /* Task priority*/
-			  &__newthread->handle         				  /* Task handle */
+			  (void*) (*__newthread)->arg,                   /* Pointer to tasks arguments (parameter) */
+			  (*__newthread)->prio,           			      /* Task priority*/
+			  &(*__newthread)->handle         				  /* Task handle */
 	  );
 #elif defined(OS_UCOS)
-	  OS_ERR   err;
-	  LIB_ERR  lib_err;
 	  // alloc mem
-	  __newthread->attr->stack = Mem_SegAlloc(0, 0, __newthread->attr->stack_size, &lib_err);
-		OSTaskCreate(&__newthread->handle,                              /* Create the start task                                */
+	  (*__newthread)->attr->stack = Mem_SegAlloc(0, 0, (*__newthread)->attr->stack_size, &lib_err);
+		OSTaskCreate(&(*__newthread)->handle,                              /* Create the start task                                */
 					  "",
-					  (OS_TASK_PTR)__newthread->start_routine,
-					  __newthread->arg,
-					  __newthread->prio,
-					  __newthread->attr->stack,
-					  __newthread->attr->stack_size/10,
-					  __newthread->attr->stack_size,
+					  (OS_TASK_PTR)(*__newthread)->start_routine,
+					  (*__newthread)->arg,
+					  (*__newthread)->prio,
+					  (*__newthread)->attr->stack,
+					  (*__newthread)->attr->stack_size/10,
+					  (*__newthread)->attr->stack_size,
 					  0u,
 					  0u,
 					  0u,
@@ -61,6 +66,10 @@ int pthread_attr_setstacksize (pthread_attr_t *__attr,
 	return 0;
 }
 int pthread_setschedprio (pthread_t *__target_thread, int __prio){
-	__target_thread->prio = __prio;
+	(*__target_thread)->prio = __prio;
 	return 0;
+}
+int pthread_join (pthread_t __th, void **__thread_return){
+	// not implemented
+	return -1;
 }

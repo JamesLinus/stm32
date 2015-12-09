@@ -17,6 +17,9 @@
 #elif defined(OS_UCOS)
 #endif
 #include <termios.h>
+#include <ringbuffer.h>
+
+#define DRV_UART_RX_BUF_SIZE	(32)
 
 int 	usart_init		(void);
 int 	usart_open		(struct platform_device *dev, int flags);
@@ -25,12 +28,20 @@ int		usart_write		(struct platform_device *dev, const void* buf, int count);
 int		usart_read		(struct platform_device *dev, void* buf, int count);
 int		usart_ioctl		(struct platform_device *dev, int request, unsigned int arguments);
 int		usart_select	(struct platform_device *device, int *readfd, int *writefd, int *exceptfd, int timeout);
-
+void 	USART1_IRQHandler(void);
+void 	USART2_IRQHandler(void);
+void 	USART3_IRQHandler(void);
+void 	UART4_IRQHandler(void);
+void 	UART5_IRQHandler(void);
+void 	USART6_IRQHandler(void);
 struct usart_driver_arch_data{
 #if defined(OS_FREERTOS)
 	void* rx_event[USART_MODULE_COUNT];
 #elif defined(OS_UCOS)
-	OS_MSG_Q rx_event[USART_MODULE_COUNT];
+	OS_FLAG_GRP rx_event;
+	struct RingBuffer	rx_buf[USART_MODULE_COUNT];
+	uint8_t				__rx_buf[USART_MODULE_COUNT][DRV_UART_RX_BUF_SIZE];
+	UART_HandleTypeDef* handle[USART_MODULE_COUNT];
 #endif
 };
 struct usart_driver_arch_data g_usart_driver_arch_data;
@@ -59,6 +70,14 @@ static struct platform_driver g_usart_driver = {
 
 int usart_init		(void){;
 	memset(&g_usart_driver_arch_data, 0, sizeof(g_usart_driver_arch_data));
+#if defined(OS_UCOS)
+	OS_ERR err;
+	int i;
+	OSFlagCreate(&g_usart_driver_arch_data.rx_event, "", 0, &err);
+	for(i = 0; i < USART_MODULE_COUNT; i++){
+		RingBuffer_Init(&g_usart_driver_arch_data.rx_buf[i], DRV_UART_RX_BUF_SIZE, &g_usart_driver_arch_data.__rx_buf[i][0]);
+	}
+#endif
 	platform_driver_register(&g_usart_driver);
 	return 0;
 }
@@ -68,9 +87,9 @@ int 	usart_open		(struct platform_device *dev, int flags){
 	struct usart_platform_data* data = (struct usart_platform_data*)dev->dev.platform_data;
 	unsigned int bank, pin;	
 	GPIO_TypeDef	 *GPIOx;
-	USART_TypeDef	 *USARTx;
 	GPIO_InitTypeDef  GPIOInitStructure;
 #if defined(STDPERIPH_DRIVER)
+	USART_TypeDef	 *USARTx;
 	USART_InitTypeDef USART_InitStructure;
 	uint32_t RCC_AHB1Periph;
 	uint16_t GPIO_PinSource;
@@ -90,6 +109,9 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		GPIOInitStructure.Alternate = GPIO_AF7_USART1;
 		__HAL_RCC_USART1_CLK_ENABLE();
 		data->__drv_usart_base.Instance = USART1;
+		BSP_IntVectSet(BSP_INT_ID_USART1, &USART1_IRQHandler);
+		HAL_NVIC_SetPriority(USART1_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(USART1_IRQn);
 #endif
 	}else if(dev->id == 1){
 		// usart2
@@ -102,6 +124,9 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		GPIOInitStructure.Alternate = GPIO_AF7_USART2;
 		__HAL_RCC_USART2_CLK_ENABLE();
 		data->__drv_usart_base.Instance = USART2;
+		BSP_IntVectSet(BSP_INT_ID_USART2, &USART2_IRQHandler);
+		HAL_NVIC_SetPriority(USART2_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(USART2_IRQn);
 #endif
 	}
 	else if(dev->id == 2){
@@ -115,6 +140,9 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		GPIOInitStructure.Alternate = GPIO_AF7_USART3;
 		__HAL_RCC_USART3_CLK_ENABLE();
 		data->__drv_usart_base.Instance = USART3;
+		BSP_IntVectSet(BSP_INT_ID_USART3, &USART3_IRQHandler);
+		HAL_NVIC_SetPriority(USART3_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(USART3_IRQn);
 #endif
 	}
 	else if(dev->id == 3){
@@ -126,8 +154,11 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		NVIC_IRQChannel = UART4_IRQn;
 #elif defined(STM32CUBEF4)
 		GPIOInitStructure.Alternate = GPIO_AF8_UART4;
-		__HAL_RCC_USART4_CLK_ENABLE();
+		__HAL_RCC_UART4_CLK_ENABLE();
 		data->__drv_usart_base.Instance = UART4;
+		BSP_IntVectSet(BSP_INT_ID_USART4, &UART4_IRQHandler);
+		HAL_NVIC_SetPriority(UART4_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(UART4_IRQn);
 #endif
 	}
 	else if(dev->id == 4){
@@ -139,8 +170,11 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		NVIC_IRQChannel = UART5_IRQn;
 #elif defined(STM32CUBEF4)
 		GPIOInitStructure.Alternate = GPIO_AF8_UART5;
-		__HAL_RCC_USART5_CLK_ENABLE();
+		__HAL_RCC_UART5_CLK_ENABLE();
 		data->__drv_usart_base.Instance = UART5;
+		BSP_IntVectSet(BSP_INT_ID_USART5, &UART5_IRQHandler);
+		HAL_NVIC_SetPriority(UART5_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(UART5_IRQn);
 #endif
 	}
 	else if(dev->id == 5){
@@ -155,6 +189,9 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		GPIOInitStructure.Alternate = GPIO_AF8_USART6;
 		__HAL_RCC_USART6_CLK_ENABLE();
 		data->__drv_usart_base.Instance = USART6;
+		BSP_IntVectSet(BSP_INT_ID_USART6, &USART6_IRQHandler);
+		HAL_NVIC_SetPriority(USART6_IRQn, 6, 0);
+		HAL_NVIC_EnableIRQ(USART6_IRQn);
 #endif
 	}
 	// config gpio
@@ -165,8 +202,8 @@ int 	usart_open		(struct platform_device *dev, int flags){
 	GPIOInitStructure.GPIO_PuPd 	= GPIO_PuPd_UP;
 #elif defined(STM32CUBEF4)
 	GPIOInitStructure.Mode			= GPIO_MODE_AF_PP;
-	GPIOInitStructure.Pull			= GPIO_PULLUP;
-	GPIOInitStructure.Speed			= GPIO_SPEED_HIGH;
+	GPIOInitStructure.Pull			= GPIO_NOPULL;
+	GPIOInitStructure.Speed			= GPIO_SPEED_FAST;
 #endif
 	// rx
 	bank = gpio_get_bank_index(data->rx_pin);
@@ -252,14 +289,13 @@ int 	usart_open		(struct platform_device *dev, int flags){
 	data->__drv_usart_base.Init.Mode		= UART_MODE_TX_RX;
 	data->__drv_usart_base.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
 	data->__drv_usart_base.Init.OverSampling = UART_OVERSAMPLING_16;
-	HAL_USART_Init(&data->__drv_usart_base);
-
+	g_usart_driver_arch_data.handle[dev->id] = &data->__drv_usart_base;
+	HAL_UART_Init(&data->__drv_usart_base);
+	__HAL_UART_ENABLE_IT(&data->__drv_usart_base, UART_IT_RXNE);
 #endif
 #if defined(OS_FREERTOS)
 	if(!g_usart_driver_arch_data.rx_event[dev->id])
 		g_usart_driver_arch_data.rx_event[dev->id] = xQueueCreate(32, 1);
-#elif defined(OS_UCOS)
-	OS_MsgQInit(&g_usart_driver_arch_data.rx_event[dev->id], 32);
 #endif
 
 	ret = 0;
@@ -274,7 +310,7 @@ int 	usart_close		(struct platform_device *dev){
 #if defined(STDPERIPH_DRIVER)
 	USART_Cmd((USART_TypeDef*)data->__drv_usart_base, DISABLE);
 #elif defined(STM32CUBEF4)
-	HAL_USART_DeInit(data->__drv_usart_base);
+	HAL_UART_DeInit(&data->__drv_usart_base);
 #endif
 	ret = 0;
 	return ret;
@@ -286,23 +322,22 @@ int		usart_read		(struct platform_device *dev, void* buf, int count){
 #if defined(OS_UCOS)
 	OS_ERR err;
 	uint8_t* rx;
+	OS_MSG_SIZE p_msg_size;
 #endif
 
 	if(!dev || dev->id < 0 || dev->id >= USART_MODULE_COUNT) return ret;
+#if defined(OS_FREERTOS)
 	ret = 0;
 	while(count > 0){
-#if defined(OS_FREERTOS)
 		if(xQueueReceive(g_usart_driver_arch_data.rx_event[dev->id], p, 0) != pdTRUE)
 			break;
-#elif defined(OS_UCOS)
-		rx = OS_MsgQGet(&g_usart_driver_arch_data.rx_event[dev->id], 1, 0, &err);
-		if(err == OS_ERR_NONE && rx) *p = *rx;
-		else break;
-#endif
 		count --;
 		p++;
 		ret++;
 	}
+#elif defined(OS_UCOS)
+	ret = RingBuffer_Pop(&g_usart_driver_arch_data.rx_buf[dev->id], p, count);
+#endif
 	return ret;
 }
 int		usart_write	(struct platform_device *dev, const void* buf, int count){
@@ -313,7 +348,8 @@ int		usart_write	(struct platform_device *dev, const void* buf, int count){
 
 	ret = 0;
 #if defined(STM32CUBEF4)
-	HAL_USART_Transmit(data->__drv_usart_base, p, count, HAL_MAX_DELAY);
+	uint32_t timeout = TICK_RATE_HZ;
+	HAL_UART_Transmit(&data->__drv_usart_base, p, count, timeout);
 #elif defined(STDPERIPH_DRIVER)
 	while(count > 0){
 		while(!(((USART_TypeDef*)data->__drv_usart_base)->SR & USART_SR_TC)){}
@@ -328,7 +364,7 @@ int		usart_write	(struct platform_device *dev, const void* buf, int count){
 int		usart_ioctl	(struct platform_device *dev, int request, unsigned int arguments){
 	int ret = -EPERM;
 	struct termios2* opt = 0;
-	USART_InitTypeDef USART_InitStructure;
+	UART_InitTypeDef USART_InitStructure;
 	struct usart_platform_data* data = (struct usart_platform_data*)dev->dev.platform_data;
 	
 	switch(request){
@@ -344,14 +380,13 @@ int		usart_ioctl	(struct platform_device *dev, int request, unsigned int argumen
 			USART_Init((USART_TypeDef*)data->__drv_usart_base, &USART_InitStructure);
 #elif defined(STM32CUBEF4)
 			data->__drv_usart_base.Init.BaudRate	= opt->c_ispeed;
-			data->__drv_usart_base.Init.WordLength	= USART_WORDLENGTH_8B;
-			data->__drv_usart_base.Init.StopBits	= USART_STOPBITS_1;
-			data->__drv_usart_base.Init.Parity		= USART_PARITY_NONE;
-			data->__drv_usart_base.Init.Mode		= USART_MODE_TX_RX;
-			data->__drv_usart_base.Init.CLKPhase	= USART_PHASE_1EDGE;
-			data->__drv_usart_base.Init.CLKPolarity	= USART_POLARITY_LOW;
-			data->__drv_usart_base.Init.CLKLastBit	= USART_LASTBIT_DISABLE;
-			HAL_USART_Init(&data->__drv_usart_base);
+			data->__drv_usart_base.Init.WordLength	= UART_WORDLENGTH_8B;
+			data->__drv_usart_base.Init.StopBits	= UART_STOPBITS_1;
+			data->__drv_usart_base.Init.Parity		= UART_PARITY_NONE;
+			data->__drv_usart_base.Init.Mode		= UART_MODE_TX_RX;
+			data->__drv_usart_base.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+			data->__drv_usart_base.Init.OverSampling = UART_OVERSAMPLING_16;
+			HAL_UART_Init(&data->__drv_usart_base);
 #endif
 			ret = 0;
 			break;
@@ -370,18 +405,35 @@ int		usart_select(struct platform_device *dev, int *readfd, int *writefd, int *e
 	if(writefd) 	*writefd = 0;
 	if(exceptfd) 	*exceptfd = 0;
 	if(readfd){
+#if defined(OS_UCOS)
+		OS_FLAGS flags;
+		OS_ERR err;
+		flags = OSFlagPend(&g_usart_driver_arch_data.rx_event,
+				((OS_FLAGS)1) << dev->id,
+				timeout,
+				OS_OPT_PEND_FLAG_SET_ANY|OS_OPT_PEND_FLAG_CONSUME,
+				0,
+				&err);
+		if(flags & (((OS_FLAGS)1) << dev->id)){
+			ret = 1;
+		}else{
+			ret = 0;
+		}
+#elif defined(OS_FREERTOS)
 		ret = xQueuePeek(g_usart_driver_arch_data.rx_event[dev->id], &u8data, timeout);
 		if(ret == pdTRUE) {
 			*readfd = 1;
 			ret = 1;
 		}
 		else ret = 0;
+#endif
 	}	
 	return ret;
 }
 // this is the interrupt request handler (IRQ) for ALL USART1 interrupts
 void USART1_IRQHandler(void){
 	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART1;
 	
@@ -391,8 +443,19 @@ void USART1_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[0], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[0], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[0], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[0]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[0], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 0, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
 void USART2_IRQHandler(void){
+	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART2;
@@ -403,8 +466,19 @@ void USART2_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[1], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[1], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[1], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[1]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[1], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 1, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
 void USART3_IRQHandler(void){
+	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART3;
@@ -415,8 +489,19 @@ void USART3_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[2], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[2], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[2], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[2]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[2], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 2, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
 void UART4_IRQHandler(void){
+	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = UART4;
@@ -427,8 +512,19 @@ void UART4_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[3], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[3], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[3], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[3]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[3], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 3, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
 void UART5_IRQHandler(void){
+	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = UART5;
@@ -439,8 +535,19 @@ void UART5_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[4], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[4], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[4], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[4]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[4], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 4, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
 void USART6_IRQHandler(void){
+	static uint8_t data;
+#if defined(STDPERIPH_DRIVER)
 	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART6;
@@ -451,4 +558,16 @@ void USART6_IRQHandler(void){
 		xHigherPriorityTaskWoken = pdTRUE;
 		xQueueSendFromISR(g_usart_driver_arch_data.rx_event[5], &data, &xHigherPriorityTaskWoken);
 	}
+#elif defined(STM32CUBEF4)
+	OS_ERR p_err;
+	if(__HAL_UART_GET_FLAG(g_usart_driver_arch_data.handle[5], UART_FLAG_RXNE)){
+		__HAL_UART_CLEAR_FLAG(g_usart_driver_arch_data.handle[5], UART_FLAG_RXNE);
+		data = g_usart_driver_arch_data.handle[5]->Instance->DR & (uint8_t)0x00FF;
+		RingBuffer_Push(&g_usart_driver_arch_data.rx_buf[5], &data, 1);
+		OSFlagPost(&g_usart_driver_arch_data.rx_event, ((OS_FLAGS)1) << 5, OS_OPT_POST_FLAG_SET, &p_err);
+	}
+#endif
 }
+
+
+

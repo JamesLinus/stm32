@@ -3,11 +3,17 @@
 #include "time.h"
 #include <stddef.h>
 #include "fcntl.h"
-
+#if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #include "queue.h"
-
 #define mqd_t	QueueHandle_t
+#elif defined(OS_UCOS)
+#include <os.h>
+#include <lib_mem.h>
+#include <lib_defines.h>
+#define mqd_t	OS_Q*
+#endif
+
 /* On success, mq_open() returns a message queue descriptor for use by other message queue functions.  On error, mq_open() returns (mqd_t) -1, with errno set to indicate the error.
  * oflag = queue len
  */ 

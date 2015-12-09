@@ -34,6 +34,7 @@ CSOURCES+=$(shell find -L $(OS_CPU_DIR) -name '*.c')
 CSOURCES+=$(shell find -L $(OS_LIB_DIR) -name '*.c')
 CSOURCES+=$(shell find -L $(STM32F4_HAL_DIR) -name '*.c')
 CSOURCES+=$(shell find -L $(CMSIS_DIR) -name '*.c')
+CSOURCES+=$(shell find -L $(EXTRA_LIB_DIR) -name '*.c')
 # Find header directories
 INC=$(shell find -L $(SRC_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(OS_DIR) -name '*.h' -exec dirname {} \; | uniq)
@@ -43,9 +44,6 @@ INC+=$(shell find -L $(STM32F4_HAL_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(CMSIS_DIR) -name '*.h' -exec dirname {} \; | uniq)
 INC+=$(shell find -L $(EXTRA_LIB_DIR) -name '*.h' -exec dirname {} \; | uniq)
 
-CSOURCES+=$(EXTRA_LIB_DIR)/src/drv/drv_core.c
-CSOURCES+=$(EXTRA_LIB_DIR)/src/drv/drv_gpio.c
-CSOURCES+=$(EXTRA_LIB_DIR)/src/pthread.c
 #INC+= $(DRIVER_DIR)/include
 INCLUDES=$(INC:%=-I%)
 # Create object list
@@ -64,7 +62,7 @@ MCFLAGS=-mcpu=cortex-m4 -mthumb -mlittle-endian \
 DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DSTM32F407xx -DSTM32CUBEF4 -DOS_UCOS
 CFLAGS  =-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 # LINKER FLAGS
-LDSCRIPT= stm32f4_flash.ld
+LDSCRIPT= BSP/stm32f4_flash.ld
 LDFLAGS =-T $(LDSCRIPT) --specs=nosys.specs $(MCFLAGS) -Wl,-Map=bin/app.map
 
 ###

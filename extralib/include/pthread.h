@@ -1,3 +1,6 @@
+/**
+ * ref https://computing.llnl.gov/tutorials/pthreads/
+ */
 #ifndef PTHREAD_H
 #define	PTHREAD_H
 #include "lib_defines.h"
@@ -5,15 +8,16 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #elif defined(OS_UCOS)
-#include  <os.h>
-#include  <os_app_hooks.h>
+#include <os.h>
+#include <os_app_hooks.h>
+#include <time.h>
 #endif
 typedef struct
 {
     void*         stack;
     size_t		  stack_size;
 }pthread_attr_t;
-typedef struct {
+struct __pthread_t{
     pthread_attr_t *attr;
     void *(*start_routine) (void *);
     void *arg;
@@ -23,7 +27,8 @@ typedef struct {
 #elif defined(OS_UCOS)
     OS_TCB		handle;
 #endif
-}pthread_t;
+};
+typedef struct __pthread_t* pthread_t;
 
 /* Create a new thread, starting with execution of START-ROUTINE
    getting passed ARG.  Creation attributed come from ATTR.  The new
@@ -45,7 +50,7 @@ int pthread_create (pthread_t * __newthread,
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-// int pthread_join (pthread_t __th, void **__thread_return);
+int pthread_join (pthread_t __th, void **__thread_return);
 
 /* Indicate that the thread TH is never to be joined with PTHREAD_JOIN.
    The resources of TH will therefore be freed immediately when it
@@ -84,6 +89,7 @@ int pthread_attr_setstacksize (pthread_attr_t *__attr,
 
 /* Set the scheduling priority for TARGET_THREAD.  */
 int pthread_setschedprio (pthread_t *__target_thread, int __prio);
+
 
 #endif	/* PTHREAD_H */
 

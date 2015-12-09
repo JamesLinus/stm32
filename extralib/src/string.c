@@ -1,4 +1,5 @@
 #include "string.h"
+#if defined(OS_FREERTOS)
 int     strncmp_s(const char *dst, const char *src, size_t siz){
 	while(siz > 0){
 		if(*dst == '\0' && *src != '\0') return -1;
@@ -68,5 +69,5 @@ void *	memcpy_s(void* __dest, const void *__src, size_t count, size_t dest_size)
 	}
 	return __dest;
 }
-
+#endif
 //end of file

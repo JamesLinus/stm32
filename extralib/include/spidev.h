@@ -71,8 +71,11 @@ struct spi_platform_data{
 	uint8_t mosi_pin;
 	uint8_t miso_pin;
 	uint8_t ss_pin;
-	
+#if defined(OS_FREERTOS)
 	void* 		__drv_base;
+#elif defined(OS_UCOS)
+
+#endif
 };
 
 

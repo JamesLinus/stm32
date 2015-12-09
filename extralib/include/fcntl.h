@@ -2,6 +2,9 @@
 #define FCNTL_H__
 #include <stddef.h>
 #include <stdint.h>
+#ifdef fd_set
+#undef fd_set
+#endif
 #define fd_set unsigned int
 #define FD_INVALID	((fd_set)-1)
 struct timeval {

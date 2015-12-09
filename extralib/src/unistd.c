@@ -1,13 +1,14 @@
-#include "unistd.h"
-#include "lib_defines.h"
+#include <unistd.h>
+#include <lib_defines.h>
+#if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #include "task.h"
 unsigned int 	sleep (unsigned int __seconds){
-	vTaskDelay(__seconds*1000 / portTICK_RATE_MS);
+	vTaskDelay(__seconds*1000 * portTICK_RATE_MS);
 	return 0;
 }
 int 			usleep_s (unsigned int __useconds){
-	vTaskDelay((__useconds > 1000) ? __useconds / 1000 / portTICK_RATE_MS : 1);
+	vTaskDelay((__useconds > 1000) ? __useconds * 1000 / portTICK_RATE_MS : 1);
 	return 0;
 }
 int clock_gettime(clockid_t clk_id, struct timespec *tp){
@@ -19,4 +20,34 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp){
 
 	return ret;
 }
+#elif defined(OS_UCOS)
+unsigned int 	sleep (unsigned int __seconds){
+	OS_ERR err;
+	OSTimeDly(__seconds*1000 * TICK_RATE_HZ, OS_OPT_TIME_DLY, &err);
+	return 0;
+}
+int 			usleep_s (unsigned int __useconds){
+	OS_ERR err;
+	OSTimeDly((__useconds > 1000) ? __useconds / 1000 * TICK_RATE_HZ : 1, OS_OPT_TIME_DLY, &err);
+	return 0;
+}
+int 			nanosleep(const struct timespec *req, struct timespec *rem){
+	OS_TICK dly;
+	OS_ERR err;
+	dly = req->tv_sec * 1000 + req->tv_nsec / 1000000;
+	dly = dly * TICK_RATE_HZ;
+	OSTimeDly(dly, OS_OPT_TIME_DLY, &err);
+	return 0;
+}
+int clock_gettime(clockid_t clk_id, struct timespec *tp){
+	int ret = 0;
+	OS_ERR err;
+	OS_TICK tick = OSTimeGet(&err);
+
+	tp->tv_sec = tick / 1000;
+	tp->tv_nsec = (tick % 1000) * 1000000;
+
+	return ret;
+}
+#endif
 //end of file

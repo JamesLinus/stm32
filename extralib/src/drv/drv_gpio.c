@@ -146,81 +146,97 @@ struct gpio_pin_ref g_gpio_pin_ref[] = {
 		.GPIO_Pin = GPIO_PIN_0,
 		.IRQChannel = BSP_INT_ID_EXTI0,
 		.isr = &EXTI0_IRQHandler,
+		.irqType = EXTI0_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_1,
 		.IRQChannel = BSP_INT_ID_EXTI1,
 		.isr = &EXTI1_IRQHandler,
+		.irqType = EXTI1_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_2,
 		.IRQChannel = BSP_INT_ID_EXTI2,
 		.isr = &EXTI2_IRQHandler,
+		.irqType = EXTI2_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_3,
 		.IRQChannel = BSP_INT_ID_EXTI3,
 		.isr = &EXTI3_IRQHandler,
+		.irqType = EXTI3_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_4,
 		.IRQChannel = BSP_INT_ID_EXTI4,
 		.isr = &EXTI4_IRQHandler,
+		.irqType = EXTI4_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_5,
 		.IRQChannel = BSP_INT_ID_EXTI9_5,
 		.isr = &EXTI9_5_IRQHandler,
+		.irqType = EXTI9_5_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_6,
 		.IRQChannel = BSP_INT_ID_EXTI9_5,
 		.isr = &EXTI9_5_IRQHandler,
+		.irqType = EXTI9_5_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_7,
 		.IRQChannel = BSP_INT_ID_EXTI9_5,
 		.isr = &EXTI9_5_IRQHandler,
+		.irqType = EXTI9_5_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_8,
 		.IRQChannel = BSP_INT_ID_EXTI9_5,
 		.isr = &EXTI9_5_IRQHandler,
+		.irqType = EXTI9_5_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_9,
 		.IRQChannel = BSP_INT_ID_EXTI9_5,
 		.isr = &EXTI9_5_IRQHandler,
+		.irqType = EXTI9_5_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_10,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_11,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_12,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 	{
 		.GPIO_Pin = DEF_BIT_13,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_14,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 	{
 		.GPIO_Pin = GPIO_PIN_15,
 		.IRQChannel = BSP_INT_ID_EXTI15_10,
 		.isr = &EXTI15_10_IRQHandler,
+		.irqType = EXTI15_10_IRQn,
 	},
 #endif
 };
@@ -301,7 +317,7 @@ struct gpio_bank_ref g_gpio_bank_ref[] = {
 	},
 #endif
 };
-//extern void LREP(char* s, ...);
+#include <debug.h>
 int 	gpio_open	(struct platform_device *dev, int flags){
 	int ret = -EPERM;
 	int bank = gpio_get_bank_index(dev->id);
@@ -359,10 +375,12 @@ int 	gpio_open	(struct platform_device *dev, int flags){
 	GPIO_InitStructure.Pull 	= data->pull;
 	GPIO_InitStructure.Speed 	= GPIO_SPEED_HIGH;
 	if(data->intr.mode != GPIO_INTR_MODE_DISABLE){
-		GPIO_InitStructure.Mode = data->intr.mode;
+		GPIO_InitStructure.Mode |= data->intr.mode | data->intr.trigger;
+		BSP_IntVectSet(g_gpio_pin_ref[pin].IRQChannel, g_gpio_pin_ref[pin].isr);
+		HAL_NVIC_SetPriority(g_gpio_pin_ref[pin].irqType, 6, 0);
+		HAL_NVIC_EnableIRQ(g_gpio_pin_ref[pin].irqType);
 	}
 	HAL_GPIO_Init(g_gpio_bank_ref[bank].GPIOx, &GPIO_InitStructure);
-	BSP_IntVectSet(g_gpio_pin_ref[pin].IRQChannel, g_gpio_pin_ref[pin].isr);
 #endif
 	
 	ret = 0;	
@@ -451,15 +469,17 @@ int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *ex
 				pdFALSE,
 				timeout);
 #elif defined(OS_UCOS)
+//		LREP("s %d[%d] timeout=%d\r\n", bank, pin, timeout);
 		uxBits = OSFlagPend(&g_gpio_driver_arch_data.event,
 				((uint32_t)1) << pin,
 				timeout,
 				OS_OPT_PEND_FLAG_SET_ANY | OS_OPT_PEND_FLAG_CONSUME,
 				0,
 				&p_err);
+//		LREP("s %d[%d]=%04X\r\n", bank, pin, uxBits);
 
 #endif
-		if(uxBits & (((uint32_t)1) << pin)) {
+		if((p_err == OS_ERR_NONE) && (uxBits & (((uint32_t)1) << pin))) {
 			*readfd = 1;
 			ret = 1;
 		}
@@ -492,6 +512,7 @@ void EXTI0_IRQHandler(void) {
     }
 #elif defined(OS_UCOS)
 	OS_ERR os_err;
+	LED_TOGGLE(RED);
 	__HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_0);
 	OSFlagPost(&g_gpio_driver_arch_data.event,
 			((uint32_t)1 << 0),

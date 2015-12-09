@@ -11,7 +11,7 @@ void LED_ON(int index);
 void LED_OFF(int index);
 void LED_TOGGLE(int index);
 
-//void LREP(char* s, ...);
+extern void LREP(char* s, ...);
 //#define LREP_WARN(s, args...) LREP("%d@%s " s, __LINE__, __FILE__, ##args)
 
 extern int g_fd_led[];

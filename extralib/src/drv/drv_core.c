@@ -254,8 +254,8 @@ int 	select(int fd, fd_set *readfds, fd_set *writefds,
 		
 		s_timeout = 0;
 		if(timeout){
-			s_timeout = timeout->tv_sec * 1000 * TICK_RATE_HZ;
-			s_timeout += timeout->tv_usec /1000 * TICK_RATE_HZ;
+			s_timeout = timeout->tv_sec * TICK_RATE_HZ;
+			s_timeout += timeout->tv_usec / 1000 * TICK_RATE_HZ / 1000;
 		}		
 		ret = drv->select(pdev, &readfd, &writefd, &errorfd, s_timeout);
 		if(ret > 0){
@@ -268,16 +268,17 @@ int 	select(int fd, fd_set *readfds, fd_set *writefds,
 }
 
 void 	FD_CLR	(int fd, fd_set *set){
-	*set = FD_INVALID;
+	set->fd = FD_INVALID;
 }
+extern void LREP(char* s, ...);
 int  	FD_ISSET(int fd, fd_set *set){
-	return (fd == (int)(*set));
+	return (fd == set->fd) ? 1 : 0;
 }
 void 	FD_SET	(int fd, fd_set *set){
-	*set = fd;
+	set->fd = fd;
 }
 void 	FD_ZERO	(fd_set *set){
-	*set = FD_INVALID;
+	set->fd = FD_INVALID;
 }
 
 //end of file

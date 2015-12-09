@@ -71,6 +71,7 @@ struct gpio_pin_ref {
 #elif defined(STM32CUBEF4)
 	uint16_t IRQChannel;
 	CPU_FNCT_VOID isr;
+	IRQn_Type irqType;
 #endif
 };
 extern struct gpio_bank_ref g_gpio_bank_ref[];

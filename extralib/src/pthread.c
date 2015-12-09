@@ -28,7 +28,7 @@ int pthread_create (pthread_t * __newthread,
 	  );
 #elif defined(OS_UCOS)
 	  // alloc mem
-	  (*__newthread)->attr->stack = Mem_SegAlloc(0, 0, (*__newthread)->attr->stack_size, &lib_err);
+	  (*__newthread)->attr->stack = Mem_SegAlloc(0, 0, (*__newthread)->attr->stack_size * sizeof(CPU_STK), &lib_err);
 		OSTaskCreate(&(*__newthread)->handle,                              /* Create the start task                                */
 					  "",
 					  (OS_TASK_PTR)(*__newthread)->start_routine,

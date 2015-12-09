@@ -59,8 +59,8 @@ BIN=outp.bin
 MCFLAGS=-mcpu=cortex-m4 -mthumb -mlittle-endian \
 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 # COMPILE FLAGS
-DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DSTM32F407xx -DSTM32CUBEF4 -DOS_UCOS
-CFLAGS  =-c $(MCFLAGS) $(DEFS) $(INCLUDES)
+DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DSTM32F407xx -DSTM32CUBEF4 -DOS_UCOS -DHSE_VALUE=8000000
+CFLAGS  = $(MCFLAGS) $(DEFS) $(INCLUDES) -c
 # LINKER FLAGS
 LDSCRIPT= BSP/stm32f4_flash.ld
 LDFLAGS =-T $(LDSCRIPT) --specs=nosys.specs $(MCFLAGS) -Wl,-Map=bin/app.map

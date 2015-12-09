@@ -290,8 +290,8 @@ int 	usart_open		(struct platform_device *dev, int flags){
 	data->__drv_usart_base.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
 	data->__drv_usart_base.Init.OverSampling = UART_OVERSAMPLING_16;
 	g_usart_driver_arch_data.handle[dev->id] = &data->__drv_usart_base;
-	HAL_UART_Init(&data->__drv_usart_base);
-	__HAL_UART_ENABLE_IT(&data->__drv_usart_base, UART_IT_RXNE);
+	HAL_UART_Init(g_usart_driver_arch_data.handle[dev->id]);
+	__HAL_UART_ENABLE_IT(g_usart_driver_arch_data.handle[dev->id], UART_IT_RXNE);
 #endif
 #if defined(OS_FREERTOS)
 	if(!g_usart_driver_arch_data.rx_event[dev->id])
@@ -397,6 +397,8 @@ int		usart_ioctl	(struct platform_device *dev, int request, unsigned int argumen
 	
 	return ret;
 }
+#include <debug.h>
+
 int		usart_select(struct platform_device *dev, int *readfd, int *writefd, int *exceptfd, int timeout){
 	int ret = -EPERM;
 	uint8_t u8data;
@@ -415,6 +417,7 @@ int		usart_select(struct platform_device *dev, int *readfd, int *writefd, int *e
 				0,
 				&err);
 		if(flags & (((OS_FLAGS)1) << dev->id)){
+			*readfd = 1;
 			ret = 1;
 		}else{
 			ret = 0;

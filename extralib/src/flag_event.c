@@ -74,9 +74,9 @@ int flag_event_timedwait(flag_event_t *event, const struct timespec *abs_timeout
 #elif defined(OS_UCOS)
 	OS_ERR err;
 	OS_FLAGS flags;
-	OS_TICK timeout = abs_timeout->tv_sec * 1000 * TICK_RATE_HZ;
-	timeout += abs_timeout->tv_nsec / 1000000 * TICK_RATE_HZ;
-	flags = OSFlagPend(event, 1, timeout, OS_OPT_PEND_FLAG_SET_ANY, 0, &err);
+	OS_TICK timeout = abs_timeout->tv_sec * TICK_RATE_HZ;
+	timeout += abs_timeout->tv_nsec / 1000000 * TICK_RATE_HZ / 1000;
+	flags = OSFlagPend(event, 1, timeout, OS_OPT_PEND_FLAG_SET_ANY|OS_OPT_PEND_FLAG_CONSUME, 0, &err);
 	if((err == OS_ERR_NONE) && (flags & ((OS_FLAGS)1) == 1)) return 1;
 	return 0;
 #endif

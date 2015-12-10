@@ -47,7 +47,7 @@ BIN=outp.bin
 MCFLAGS=-mcpu=cortex-m4 -mthumb -mlittle-endian \
 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 # COMPILE FLAGS
-DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX
+DEFS=-DUSE_STDPERIPH_DRIVER -DSTM32F4XX -DOS_FREERTOS -DSTDPERIPH_DRIVER
 CFLAGS  =-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 # LINKER FLAGS
 LDSCRIPT= stm32_flash.ld

@@ -12,10 +12,12 @@ void LED_OFF(int index);
 void LED_TOGGLE(int index);
 
 extern void LREP(char* s, ...);
-//#define LREP_WARN(s, args...) LREP("%d@%s " s, __LINE__, __FILE__, ##args)
+#define LREP_WARN(s, args...) LREP("%d@%s " s, __LINE__, __FILE__, ##args)
 
 extern int g_fd_led[];
 #define LED_ON(led) {uint8_t val = 1; write(g_fd_led[LED_##led], &val, 1);}
 #define LED_OFF(led) {uint8_t val = 0; write(g_fd_led[LED_##led], &val, 1);}
 #define LED_TOGGLE(led) {ioctl(g_fd_led[LED_##led], GPIO_IOC_TOGGLE, 0);}
+
+
 #endif

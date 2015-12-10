@@ -4,14 +4,15 @@
 mqd_t mq_open(const char *name, int oflag){
 #if defined(OS_FREERTOS)
 	mqd_t ret = xQueueCreate(oflag, 1);
+	return ret;
 #elif defined(OS_UCOS)
 	OS_Q *q;
 	OS_ERR err;
 	LIB_ERR l_err;
 	q = (OS_Q*)Mem_SegAlloc(0, 0, sizeof(OS_Q), &l_err);
 	OSQCreate(q, "", oflag, &err);
-#endif
 	return q;
+#endif
 }
 //On success mq_close() returns 0; on error, -1 is returned, with errno set to indicate the error.
 int mq_close(mqd_t mqdes){

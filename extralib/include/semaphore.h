@@ -1,16 +1,25 @@
-#ifndef SEMAPHORE_H__
-#define SEMAPHORE_H__
+#ifndef _SEMAPHORE_H
+#define _SEMAPHORE_H
 #if defined(OS_FREERTOS)
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
 #include "semphr.h"
-#define sem_t SemaphoreHandle_t
 #elif defined(OS_UCOS)
 #include <os.h>
-#define sem_t OS_SEM
 #endif
 #include "time.h"
+#undef sem_init
+#undef sem_destroy
+#undef sem_post
+#undef sem_wait
+#undef sem_timedwait
+#undef sem_t
+#if defined(OS_UCOS)
+#define sem_t OS_SEM
+#elif defined(OS_FREERTOS)
+#define sem_t SemaphoreHandle_t
+#endif
 #define SEM_MAX_COUNT		999
 //sem_init() returns 0 on success; on error, -1 is returned, and errno is set to indicate the error.
 int sem_init(sem_t *sem, int pshared, unsigned int value);

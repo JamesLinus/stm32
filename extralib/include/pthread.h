@@ -28,7 +28,11 @@ struct __pthread_t{
     OS_TCB		handle;
 #endif
 };
-typedef struct __pthread_t* pthread_t;
+#if defined(OS_FREERTOS)
+	typedef struct __pthread_t  pthread_t;
+#elif defined(OS_UCOS)
+    typedef struct __pthread_t* pthread_t;
+#endif
 
 /* Create a new thread, starting with execution of START-ROUTINE
    getting passed ARG.  Creation attributed come from ATTR.  The new

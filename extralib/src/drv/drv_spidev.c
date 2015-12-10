@@ -4,10 +4,12 @@
 #include <spidev.h>
 #include <stm32f4xx_hal.h>
 #include <stm32f4xx_hal_spi.h>
+#include <stm32f4xx_hal_gpio.h>
 
 #include <os.h>
 #include <ringbuffer.h>
 #include <bsp.h>
+#include <debug.h>
 
 int 	spi_init		(void);
 int 	spi_open		(struct platform_device *dev, int flags);
@@ -149,7 +151,7 @@ int 	spi_open	(struct platform_device *dev, int flags){
 	
 	// GPIO pin
 	GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-	GPIO_InitStruct.Pull      = GPIO_PULLUP;
+	GPIO_InitStruct.Pull      = GPIO_NOPULL;
 	GPIO_InitStruct.Speed     = GPIO_SPEED_FAST;
 	if(data->sck_pin != GPIO_PIN_INVALID){
 		bank = gpio_get_bank_index(data->sck_pin);
@@ -229,7 +231,7 @@ int 	spi_open	(struct platform_device *dev, int flags){
 	 * CPOL = 0 --> clock is low when idle
 	 * CPHA = 0 --> data is sampled at the first edge
 	 */
-	g_spi_driver_arch_data.handle[dev->id].Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+	g_spi_driver_arch_data.handle[dev->id].Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
 	g_spi_driver_arch_data.handle[dev->id].Init.Direction         = SPI_DIRECTION_2LINES;
 	g_spi_driver_arch_data.handle[dev->id].Init.CLKPhase          = SPI_PHASE_1EDGE;
 	g_spi_driver_arch_data.handle[dev->id].Init.CLKPolarity       = SPI_POLARITY_LOW;
@@ -239,12 +241,13 @@ int 	spi_open	(struct platform_device *dev, int flags){
 	g_spi_driver_arch_data.handle[dev->id].Init.FirstBit          = SPI_FIRSTBIT_MSB;
 	g_spi_driver_arch_data.handle[dev->id].Init.NSS               = SPI_NSS_SOFT;
 	g_spi_driver_arch_data.handle[dev->id].Init.TIMode            = SPI_TIMODE_DISABLE;
-	g_spi_driver_arch_data.handle[dev->id].Init.Mode 				= SPI_MODE_MASTER;
+	g_spi_driver_arch_data.handle[dev->id].Init.Mode 			  = SPI_MODE_MASTER;
 	HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
 	// interrupt
 	HAL_NVIC_SetPriority(iRQn_Type, 7, 0);
 	HAL_NVIC_EnableIRQ(iRQn_Type);
 	__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+	__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
 	
 	ret = 0;
 	return ret;
@@ -287,8 +290,11 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 				g_spi_driver_arch_data.handle[dev->id].Init.DataSize = (tr->bits_per_word == 16) ? SPI_DATASIZE_16BIT : SPI_DATASIZE_8BIT;
 				ival = 1;
 			}
-			if(ival)
+			if(ival){
 				HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
+				__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+				__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
+			}
 			while(len > 0){
 				if(tx){
 					g_spi_driver_arch_data.handle[dev->id].Instance->DR = *tx;
@@ -299,7 +305,7 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 
 				flags = OSFlagPend(&g_spi_driver_arch_data.rx_event,
 						((OS_FLAGS)1) << dev->id,
-						TICK_RATE_HZ,
+						TICK_RATE_HZ/100,
 						OS_OPT_PEND_FLAG_SET_ANY|OS_OPT_PEND_FLAG_CONSUME,
 						0,
 						&err);
@@ -337,6 +343,8 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 				g_spi_driver_arch_data.handle[dev->id].Init.FirstBit          = SPI_FIRSTBIT_MSB;
 			}
 			HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
+			__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+			__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
 			ret = 0;
 			break;
 		}
@@ -344,6 +352,8 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 			ival = *((unsigned int*)arguments);
 			g_spi_driver_arch_data.handle[dev->id].Init.FirstBit = ival ? SPI_FIRSTBIT_LSB : SPI_FIRSTBIT_MSB;
 			HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
+			__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+			__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
 			ret = 0;
 			break;
 		}
@@ -351,6 +361,8 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 			ival = *((unsigned int*)arguments);
 			g_spi_driver_arch_data.handle[dev->id].Init.DataSize = (ival == 16) ? SPI_DATASIZE_16BIT : SPI_DATASIZE_8BIT;
 			HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
+			__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+			__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
 			ret = 0;
 			break;
 		}
@@ -360,6 +372,8 @@ int		spi_ioctl	(struct platform_device *dev, int request, unsigned int arguments
 
 			g_spi_driver_arch_data.handle[dev->id].Init.BaudRatePrescaler = g_spi_driver_arch_data.speed_supported[scale_index].scale;
 			HAL_SPI_Init(&g_spi_driver_arch_data.handle[dev->id]);
+			__HAL_SPI_ENABLE_IT(&g_spi_driver_arch_data.handle[dev->id], SPI_IT_RXNE);
+			__HAL_SPI_ENABLE(&g_spi_driver_arch_data.handle[dev->id]);
 			ret = 0;
 			break;
 		}
@@ -388,7 +402,6 @@ void SPI1_IRQHandler(void){
 void SPI2_IRQHandler(void){
 	static uint8_t data;
 	static OS_ERR p_err;
-	
 	if( g_spi_driver_arch_data.handle[1].Instance->SR & 0x01 ){
 		g_spi_driver_arch_data.handle[1].Instance->SR = 0x00;
 		data = g_spi_driver_arch_data.handle[1].Instance->DR;

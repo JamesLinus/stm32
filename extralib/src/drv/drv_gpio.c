@@ -468,6 +468,7 @@ int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *ex
 				pdTRUE,
 				pdFALSE,
 				timeout);
+		if((uxBits & (((uint32_t)1) << pin))) {
 #elif defined(OS_UCOS)
 //		LREP("s %d[%d] timeout=%d\r\n", bank, pin, timeout);
 		uxBits = OSFlagPend(&g_gpio_driver_arch_data.event,
@@ -477,9 +478,8 @@ int		gpio_select(struct platform_device *dev, int *readfd, int *writefd, int *ex
 				0,
 				&p_err);
 //		LREP("s %d[%d]=%04X\r\n", bank, pin, uxBits);
-
-#endif
 		if((p_err == OS_ERR_NONE) && (uxBits & (((uint32_t)1) << pin))) {
+#endif
 			*readfd = 1;
 			ret = 1;
 		}

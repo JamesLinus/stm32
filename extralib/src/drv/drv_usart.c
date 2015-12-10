@@ -15,9 +15,9 @@
 #include "task.h"
 #include "semphr.h"
 #elif defined(OS_UCOS)
+#include <ringbuffer.h>
 #endif
 #include <termios.h>
-#include <ringbuffer.h>
 
 #define DRV_UART_RX_BUF_SIZE	(32)
 
@@ -184,7 +184,6 @@ int 	usart_open		(struct platform_device *dev, int flags){
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART6, ENABLE);
 		USARTx = USART6;
 		NVIC_IRQChannel = USART6_IRQn;
-		data->__drv_usart_base.Instance = USART6;
 #elif defined(STM32CUBEF4)
 		GPIOInitStructure.Alternate = GPIO_AF8_USART6;
 		__HAL_RCC_USART6_CLK_ENABLE();
@@ -364,7 +363,7 @@ int		usart_write	(struct platform_device *dev, const void* buf, int count){
 int		usart_ioctl	(struct platform_device *dev, int request, unsigned int arguments){
 	int ret = -EPERM;
 	struct termios2* opt = 0;
-	UART_InitTypeDef USART_InitStructure;
+	USART_InitTypeDef USART_InitStructure;
 	struct usart_platform_data* data = (struct usart_platform_data*)dev->dev.platform_data;
 	
 	switch(request){
@@ -459,7 +458,6 @@ void USART1_IRQHandler(void){
 void USART2_IRQHandler(void){
 	static uint8_t data;
 #if defined(STDPERIPH_DRIVER)
-	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART2;
 	
@@ -482,7 +480,6 @@ void USART2_IRQHandler(void){
 void USART3_IRQHandler(void){
 	static uint8_t data;
 #if defined(STDPERIPH_DRIVER)
-	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART3;
 	
@@ -505,7 +502,6 @@ void USART3_IRQHandler(void){
 void UART4_IRQHandler(void){
 	static uint8_t data;
 #if defined(STDPERIPH_DRIVER)
-	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = UART4;
 	
@@ -528,7 +524,6 @@ void UART4_IRQHandler(void){
 void UART5_IRQHandler(void){
 	static uint8_t data;
 #if defined(STDPERIPH_DRIVER)
-	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = UART5;
 	
@@ -551,7 +546,6 @@ void UART5_IRQHandler(void){
 void USART6_IRQHandler(void){
 	static uint8_t data;
 #if defined(STDPERIPH_DRIVER)
-	static uint8_t data;
 	static BaseType_t xHigherPriorityTaskWoken;
 	static USART_TypeDef* USARTx = USART6;
 	

@@ -12,6 +12,7 @@
 #include <spidev.h>
 #include <drv_gpio.h>
 #include <debug.h>
+#include <string.h>
 
 #define PHY_SET_REG_VERIFY	0
 
@@ -316,7 +317,7 @@ int 	MAC_mrf24j40_read(struct mac_mrf24j40* mac, void* payload, int payload_maxl
 	}
 	if(item){
 		if(item->payload_len > payload_maxlen) item->payload_len = payload_maxlen;
-		_lib_memcpy(payload, item->payload, item->payload_len);
+		memcpy_s(payload, item->payload, item->payload_len, payload_maxlen);
 		ret = item->payload_len;
 		item->flags &= ~((uint8_t)0x01);
 	}
@@ -334,7 +335,7 @@ int 	MAC_mrf24j40_read(struct mac_mrf24j40* mac, void* payload, int payload_maxl
 		}
 		if(item){
 			if(item->payload_len > payload_maxlen) item->payload_len = payload_maxlen;
-			_lib_memcpy(payload, item->payload, item->payload_len);
+			memcpy_s(payload, item->payload, item->payload_len, payload_maxlen);
 			ret = item->payload_len;
 			item->flags &= ~((uint8_t)0x01);
 		}
@@ -356,8 +357,8 @@ int 	MAC_mrf24j40_write(struct mac_mrf24j40* mac, struct mac_mrf24j40_write_para
 	}
 	if(item){
 		if(payloadlen > MAC_MRF24J40_WRITE_PAYLOAD_MAX_LENGTH) payloadlen = MAC_MRF24J40_WRITE_PAYLOAD_MAX_LENGTH;
-		_lib_memcpy(&item->param, trans, sizeof(struct mac_mrf24j40_write_param));
-		_lib_memcpy(item->payload, payload, payloadlen);
+		memcpy_s(&item->param, trans, sizeof(struct mac_mrf24j40_write_param), sizeof(struct mac_mrf24j40_write_param));
+		memcpy_s(item->payload, payload, payloadlen, MAC_MRF24J40_WRITE_PAYLOAD_MAX_LENGTH);
 		item->payload_len = payloadlen;
 		item->flags |= 0x01;
 	}else{
@@ -534,7 +535,7 @@ int 	MAC_mrf24j40_task(struct mac_mrf24j40* mac){
 		}
 		if(read_item){
 			if(u8len > MAC_MRF24J40_READ_PAYLOAD_MAX_LENGTH-1+10) u8len = MAC_MRF24J40_READ_PAYLOAD_MAX_LENGTH-1+10;
-			_lib_memcpy(read_item->payload, &rxBuf[10], u8len + 1 - 10);
+			memcpy_s(read_item->payload, &rxBuf[10], u8len + 1 - 10, MAC_MRF24J40_READ_PAYLOAD_MAX_LENGTH-1+10);
 			read_item->payload_len = u8len+1-10;
 			read_item->flags |= 0x01;	// set flags
 			mac->flags |= ((uint8_t)1 << MAC_MRF24J40_FLAG_RX_DONE);

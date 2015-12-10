@@ -38,21 +38,6 @@ volatile uint8_t	g_debug_cmd = 0;
 
 struct mac_mrf24j40	g_rf_mac;
 
-/*************************************************************************/
-// AdditionalNodeID variable array defines the additional 
-// information to identify a device on a PAN. This array
-// will be transmitted when initiate the connection between 
-// the two devices. This  variable array will be stored in 
-// the Connection Entry structure of the partner device. The 
-// size of this array is ADDITIONAL_NODE_ID_SIZE, defined in 
-// ConfigApp.h.
-// In this demo, this variable array is set to be empty.
-/*************************************************************************/
-#if ADDITIONAL_NODE_ID_SIZE > 0
-    uint8_t AdditionalNodeID[ADDITIONAL_NODE_ID_SIZE] = {0x00};
-#endif
-
-
 extern int board_register_devices();
 int g_thread_index = 1;
 #define DEFINE_THREAD(fxn, stack_size, priority) {\
@@ -291,12 +276,14 @@ void *Thread_RFIntr(void *pvParameters){
     timeout.tv_usec = 1000*500;    // 500ms
 
     while (1) {        
-        len = select(rf_mac_init.fd_intr, (unsigned int*)&readfs, 0, 0, &timeout);
+        len = select(rf_mac_init.fd_intr, &readfs, 0, 0, &timeout);
         if(len > 0){
             if(FD_ISSET(rf_mac_init.fd_intr, &readfs)){
             	MAC_mrf24j40_ioctl(&g_rf_mac, mac_mrf24j40_ioc_trigger_interrupt, 0);
             }
         }else if(len == 0){
+        	LED_TOGGLE(BLUE);
+
         	portYIELD();
         }else{
             LREP("select intr pin failed.\r\n");
@@ -320,7 +307,7 @@ void *Thread_DebugRx(void *pvParameters){
     sem_wait(sem_startup);
     LREP("Thread DebugRx is running\r\n");
     while (1) {
-        len = select(g_fd_debug, (unsigned int*)&readfs, 0, 0, &timeout);
+        len = select(g_fd_debug, &readfs, 0, 0, &timeout);
         if(len > 0){
             if(FD_ISSET(g_fd_debug, &readfs)){
                 len = read_dev(g_fd_debug, &u8val, 1);
